@@ -8,6 +8,8 @@ Run from inside src/:
 """
 
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -117,6 +119,38 @@ def format_reasons(reasons: str) -> str:
     return "; ".join(parts)
 
 
+def format_reasons_for_speech(reasons_plain: str) -> str:
+    if not reasons_plain or reasons_plain == "No reasons recorded":
+        return "it looks suspicious"
+    return reasons_plain.replace("; ", " and ").rstrip(".").lower()
+
+
+def build_voice_alert_text(amount: float, counterparty: str, reasons_plain: str) -> str:
+    reasons = format_reasons_for_speech(reasons_plain)
+    payee = counterparty or "an unknown payee"
+    return (
+        f"This payment of {amount:.2f} rupees to {payee} looks unusual "
+        f"because {reasons}. Are you sure this was you?"
+    )
+
+
+def generate_voice_alert(text: str) -> bytes | None:
+    """Generate MP3 bytes via gTTS; save via temp file. Returns None on failure."""
+    tmp_path = None
+    try:
+        from gtts import gTTS
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+            tmp_path = tmp.name
+        gTTS(text=text, lang="en").save(tmp_path)
+        return Path(tmp_path).read_bytes()
+    except Exception:
+        return None
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+
 def init_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -171,6 +205,8 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                 "detail": row["reasons_plain"],
                 "flag_id": row["flag_id"],
                 "risk_score": row["risk_score"],
+                "amount": row["amount"],
+                "counterparty": payee,
             }
         )
 
@@ -192,6 +228,8 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                 ),
                 "flag_id": None,
                 "risk_score": 0,
+                "amount": None,
+                "counterparty": None,
             }
         )
 
@@ -215,16 +253,48 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
             st.write(event["summary"])
             st.caption(event["detail"])
             if event["flag_id"]:
-                if st.button(
-                    "Why was this flagged?",
-                    key=f"flag_{event['flag_id']}",
-                ):
-                    st.session_state.pending_question = (
-                        f"Why was the transaction flagged with risk score "
-                        f"{event['risk_score']:.2f}? The reasons were: "
-                        f"{event['detail']}"
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(
+                        "Why was this flagged?",
+                        key=f"flag_{event['flag_id']}",
+                    ):
+                        st.session_state.pending_question = (
+                            f"Why was the transaction flagged with risk score "
+                            f"{event['risk_score']:.2f}? The reasons were: "
+                            f"{event['detail']}"
+                        )
+                        st.rerun()
+                with btn_col2:
+                    if st.button(
+                        "Play Voice Alert",
+                        key=f"voice_{event['flag_id']}",
+                    ):
+                        alert_text = build_voice_alert_text(
+                            event["amount"],
+                            event["counterparty"],
+                            event["detail"],
+                        )
+                        audio_bytes = generate_voice_alert(alert_text)
+                        audio_key = f"voice_audio_{event['flag_id']}"
+                        error_key = f"voice_error_{event['flag_id']}"
+                        if audio_bytes:
+                            st.session_state[audio_key] = audio_bytes
+                            st.session_state.pop(error_key, None)
+                        else:
+                            st.session_state[error_key] = True
+                            st.session_state.pop(audio_key, None)
+                        st.rerun()
+
+                audio_key = f"voice_audio_{event['flag_id']}"
+                error_key = f"voice_error_{event['flag_id']}"
+                if audio_key in st.session_state:
+                    st.audio(st.session_state[audio_key], format="audio/mp3")
+                if st.session_state.get(error_key):
+                    st.warning(
+                        "Could not generate voice alert — gTTS may be unavailable "
+                        "or you may be offline. The text alert is still shown above."
                     )
-                    st.rerun()
 
 
 def render_chat(conn, user_id: str):
