@@ -25,6 +25,445 @@ REASON_LABELS = {
     "velocity_burst": "Multiple rapid transactions in a short window",
 }
 
+# --- Visual theme (CSS / layout only) ---
+
+COLORS = {
+    "bg": "#F7F1E8",
+    "card": "#FFFFFF",
+    "primary": "#E8A87C",
+    "secondary": "#D98E5F",
+    "text": "#2B2B2B",
+    "muted": "#8A8378",
+    "success": "#9CBFA0",
+    "warning": "#E0B15C",
+    "error": "#E08578",
+}
+
+
+def inject_custom_css():
+    c = COLORS
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {{
+            --paylens-bg: {c["bg"]};
+            --paylens-card: {c["card"]};
+            --paylens-primary: {c["primary"]};
+            --paylens-text: {c["text"]};
+            --paylens-muted: {c["muted"]};
+            --paylens-border: #E5DDD2;
+        }}
+
+        html, body, [class*="css"] {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: {c["text"]};
+            line-height: 1.6;
+        }}
+
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        section.main {{
+            background-color: {c["bg"]} !important;
+        }}
+
+        [data-testid="stHeader"] {{
+            background: {c["bg"]} !important;
+            border-bottom: none !important;
+        }}
+
+        [data-testid="stToolbar"] {{
+            background: {c["bg"]} !important;
+        }}
+
+        [data-testid="stDecoration"] {{ display: none; }}
+        #MainMenu {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
+        .stDeployButton {{ display: none; }}
+
+        .block-container {{
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            max-width: 1120px;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }}
+
+        h1, h2, h3, .section-title {{
+            color: {c["text"]} !important;
+            font-weight: 600 !important;
+            letter-spacing: -0.02em;
+        }}
+
+        p, .stMarkdown, .stCaption, label, .stSelectbox label {{
+            color: {c["text"]};
+        }}
+
+        .stCaption, .muted-text {{
+            color: {c["muted"]} !important;
+        }}
+
+        .section-card,
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+            background: {c["card"]} !important;
+            border-radius: 18px !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+            border: 1px solid var(--paylens-border) !important;
+            padding: 24px !important;
+            margin-bottom: 24px !important;
+        }}
+
+        .section-title {{
+            font-size: 1.125rem;
+            margin: 0 0 4px 0;
+        }}
+
+        .section-subtitle {{
+            color: {c["muted"]};
+            font-size: 0.875rem;
+            margin: 0 0 20px 0;
+        }}
+
+        .page-header {{
+            margin-bottom: 32px;
+        }}
+
+        .brand-title {{
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: {c["primary"]} !important;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }}
+
+        .brand-accent-bar {{
+            width: 72px;
+            height: 4px;
+            background: {c["primary"]};
+            border-radius: 999px;
+            margin-bottom: 14px;
+        }}
+
+        .brand-subtitle {{
+            color: {c["muted"]};
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.5;
+        }}
+
+        .user-meta {{
+            color: {c["muted"]};
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }}
+
+        .user-meta strong {{
+            color: {c["text"]};
+        }}
+
+        .stSelectbox label,
+        .stSelectbox [data-testid="stMarkdownContainer"] p {{
+            color: {c["text"]} !important;
+            font-weight: 500;
+        }}
+
+        .stSelectbox div[data-baseweb="select"] > div,
+        .stSelectbox div[data-baseweb="select"] > div:focus-within {{
+            background-color: {c["card"]} !important;
+            color: {c["text"]} !important;
+            border: 1px solid var(--paylens-border) !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
+        }}
+
+        .stSelectbox div[data-baseweb="select"] span,
+        .stSelectbox div[data-baseweb="select"] svg {{
+            color: {c["text"]} !important;
+            fill: {c["text"]} !important;
+        }}
+
+        div[data-baseweb="popover"],
+        div[data-baseweb="popover"] > div {{
+            background-color: {c["card"]} !important;
+            border: 1px solid var(--paylens-border) !important;
+            border-radius: 12px !important;
+        }}
+
+        div[data-baseweb="popover"] ul {{
+            background-color: {c["card"]} !important;
+        }}
+
+        div[data-baseweb="popover"] li {{
+            color: {c["text"]} !important;
+            background-color: {c["card"]} !important;
+        }}
+
+        div[data-baseweb="popover"] li:hover,
+        div[data-baseweb="popover"] li[aria-selected="true"] {{
+            background-color: {c["bg"]} !important;
+            color: {c["text"]} !important;
+        }}
+
+        [data-testid="stBottom"],
+        [data-testid="stBottomBlockContainer"],
+        [data-testid="stChatInput"] {{
+            background-color: {c["bg"]} !important;
+        }}
+
+        [data-testid="stBottomBlockContainer"] {{
+            border-top: 1px solid var(--paylens-border) !important;
+            padding-top: 0.75rem;
+        }}
+
+        [data-testid="stChatInput"] > div {{
+            background-color: {c["card"]} !important;
+            border: 1.5px solid {c["primary"]} !important;
+            border-radius: 14px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        }}
+
+        [data-testid="stChatInput"] textarea,
+        [data-testid="stChatInput"] input {{
+            background-color: {c["card"]} !important;
+            color: {c["text"]} !important;
+            caret-color: {c["text"]} !important;
+        }}
+
+        [data-testid="stChatInput"] textarea::placeholder {{
+            color: {c["muted"]} !important;
+        }}
+
+        [data-testid="stChatInput"] button {{
+            color: {c["primary"]} !important;
+        }}
+
+        [data-testid="stChatInput"] button svg {{
+            fill: {c["primary"]} !important;
+        }}
+
+        .event-card-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }}
+
+        .event-type {{
+            font-weight: 600;
+            color: {c["text"]};
+            font-size: 0.95rem;
+        }}
+
+        .risk-badge, .status-badge {{
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }}
+
+        .event-summary {{
+            color: {c["text"]};
+            font-size: 0.95rem;
+            margin: 0 0 6px 0;
+            line-height: 1.5;
+        }}
+
+        .event-detail {{
+            color: {c["muted"]};
+            font-size: 0.85rem;
+            margin: 0;
+            line-height: 1.5;
+        }}
+
+        .score-hero {{
+            text-align: left;
+            margin-bottom: 24px;
+        }}
+
+        .score-value {{
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: {c["text"]};
+            line-height: 1.1;
+            margin: 4px 0;
+        }}
+
+        .score-label {{
+            color: {c["muted"]};
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 500;
+        }}
+
+        .progress-item {{
+            margin-bottom: 18px;
+        }}
+
+        .progress-label {{
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: {c["text"]};
+            margin-bottom: 8px;
+            font-weight: 500;
+        }}
+
+        .progress-track {{
+            height: 10px;
+            background: #EDE6DC;
+            border-radius: 999px;
+            overflow: hidden;
+        }}
+
+        .progress-fill {{
+            height: 100%;
+            background: {c["secondary"]};
+            border-radius: 999px;
+            transition: width 0.3s ease;
+        }}
+
+        .stButton > button {{
+            background-color: {c["primary"]} !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 999px !important;
+            padding: 0.55rem 1.25rem !important;
+            font-weight: 500 !important;
+            box-shadow: none !important;
+            transition: background-color 0.2s ease;
+        }}
+
+        .stButton > button:hover {{
+            background-color: {c["secondary"]} !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }}
+
+        .stButton > button:focus {{
+            box-shadow: 0 0 0 2px rgba(232, 168, 124, 0.35) !important;
+        }}
+
+        [data-testid="stMetric"] {{
+            background: transparent;
+        }}
+
+        [data-testid="stMetricValue"] {{
+            color: {c["text"]};
+        }}
+
+        [data-testid="stMetricLabel"] {{
+            color: {c["muted"]};
+        }}
+
+        .stProgress > div > div {{
+            background-color: {c["secondary"]} !important;
+            border-radius: 999px !important;
+        }}
+
+        .stProgress > div {{
+            background-color: #EDE6DC !important;
+            border-radius: 999px !important;
+        }}
+
+        [data-testid="stChatMessage"] {{
+            background: #FAFAF8 !important;
+            border-radius: 14px !important;
+            border: 1px solid var(--paylens-border) !important;
+            color: {c["text"]} !important;
+        }}
+
+        [data-testid="stChatMessage"] p,
+        [data-testid="stChatMessage"] span {{
+            color: {c["text"]} !important;
+        }}
+
+        [data-testid="stExpander"] {{
+            background: {c["card"]} !important;
+            border-radius: 18px !important;
+            border: 1px solid var(--paylens-border) !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+            margin-bottom: 24px !important;
+        }}
+
+        [data-testid="stExpander"] summary {{
+            color: {c["text"]} !important;
+        }}
+
+        .stAlert {{
+            background-color: {c["card"]} !important;
+            color: {c["text"]} !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--paylens-border) !important;
+        }}
+
+        hr {{
+            border-color: var(--paylens-border) !important;
+            margin: 28px 0 !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def open_section_card(title: str, subtitle: str = ""):
+    subtitle_html = f'<p class="section-subtitle">{subtitle}</p>' if subtitle else ""
+    st.markdown(
+        f'<div class="section-card">'
+        f'<h3 class="section-title">{title}</h3>{subtitle_html}',
+        unsafe_allow_html=True,
+    )
+
+
+def close_section_card():
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def risk_badge_html(risk_score: float) -> str:
+    if risk_score >= 0.7:
+        label, color = "High Risk", COLORS["error"]
+    elif risk_score >= 0.4:
+        label, color = "Medium Risk", COLORS["warning"]
+    else:
+        label, color = "Low Risk", COLORS["success"]
+    return (
+        f'<span class="risk-badge" style="background:{color}22;color:{color};'
+        f'border:1px solid {color}55;">{label} · {risk_score:.2f}</span>'
+    )
+
+
+def subscription_badge_html() -> str:
+    color = COLORS["success"]
+    return (
+        f'<span class="status-badge" style="background:{color}22;color:{color};'
+        f'border:1px solid {color}55;">Subscription</span>'
+    )
+
+
+def progress_bar_html(label: str, value: float) -> str:
+    pct = min(max(value, 0.0), 1.0)
+    return f"""
+    <div class="progress-item">
+        <div class="progress-label">
+            <span>{label}</span>
+            <span>{value:.2f}</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" style="width:{pct * 100:.1f}%;"></div>
+        </div>
+    </div>
+    """
+
 
 @st.cache_resource
 def get_connection():
@@ -119,22 +558,69 @@ def format_reasons(reasons: str) -> str:
     return "; ".join(parts)
 
 
-def format_reasons_for_speech(reasons_plain: str) -> str:
-    if not reasons_plain or reasons_plain == "No reasons recorded":
-        return "it looks suspicious"
-    return reasons_plain.replace("; ", " and ").rstrip(".").lower()
+VOICE_TEMPLATES = {
+    "en": {
+        "template": "This payment of {amount:.2f} rupees to {payee} looks unusual because {reasons}. Are you sure this was you?",
+        "payee_default": "an unknown payee",
+        "no_reasons": "it looks suspicious",
+        "and_joiner": " and ",
+        "reasons": {
+            "amount_spike": "unusual amount spike vs. your typical spending",
+            "odd_hour": "transaction at an unusual hour (late night / early morning)",
+            "new_payee": "first-time payee — never transacted with them before",
+            "velocity_burst": "multiple rapid transactions in a short window",
+        }
+    },
+    "hi": {
+        "template": "{payee} को {amount:.2f} रुपये का यह भुगतान असामान्य लग रहा है क्योंकि {reasons}। क्या आपको यकीन है कि यह आप ही थे?",
+        "payee_default": "एक अज्ञात प्राप्तकर्ता",
+        "no_reasons": "यह संदिग्ध लग रहा है",
+        "and_joiner": " और ",
+        "reasons": {
+            "amount_spike": "यह आपके सामान्य खर्च की तुलना में असामान्य रूप से अधिक है",
+            "odd_hour": "यह असामान्य समय पर किया गया लेन-देन है (देर रात या सुबह जल्दी)",
+            "new_payee": "यह एक नया प्राप्तकर्ता है जिसके साथ पहले कभी लेन-देन नहीं किया गया है",
+            "velocity_burst": "कम समय में कई तेज़ लेन-देन किए गए हैं",
+        }
+    },
+    "ta": {
+        "template": "{payee} என்பவருக்குச் செலுத்தப்பட்ட {amount:.2f} ரூபாய் வழக்கத்திற்கு மாறாக உள்ளது, ஏனெனில் {reasons}. இதை நீங்கள்தான் செய்தீர்களா?",
+        "payee_default": "அறியப்படாத நபர்",
+        "no_reasons": "இது சந்தேகத்திற்குரியதாகத் தெரிகிறது",
+        "and_joiner": " மற்றும் ",
+        "reasons": {
+            "amount_spike": "இது உங்கள் வழக்கமான செலவை விட வழக்கத்திற்கு மாறாக அதிகமாக உள்ளது",
+            "odd_hour": "இது வழக்கத்திற்கு மாறான நேரத்தில் நடந்த பரிவர்த்தனை (நள்ளிரவு அல்லது அதிகாலை)",
+            "new_payee": "இது ஒரு புதிய நபர் — இதற்கு முன்பு நீங்கள் இவருடன் பரிவர்த்தனை செய்யவில்லை",
+            "velocity_burst": "குறுகிய காலத்தில் பல விரைவான பரிவர்த்தனைகள் நடந்துள்ளன",
+        }
+    }
+}
 
 
-def build_voice_alert_text(amount: float, counterparty: str, reasons_plain: str) -> str:
-    reasons = format_reasons_for_speech(reasons_plain)
-    payee = counterparty or "an unknown payee"
-    return (
-        f"This payment of {amount:.2f} rupees to {payee} looks unusual "
-        f"because {reasons}. Are you sure this was you?"
-    )
+def build_voice_alert_text(amount: float, counterparty: str, raw_reasons: str, language: str = "en") -> str:
+    lang_cfg = VOICE_TEMPLATES.get(language, VOICE_TEMPLATES["en"])
+    
+    payee = counterparty or lang_cfg["payee_default"]
+    
+    if not raw_reasons:
+        reasons_str = lang_cfg["no_reasons"]
+    else:
+        reason_keys = [r.strip() for r in str(raw_reasons).split(",") if r.strip()]
+        translated_reasons = []
+        for rk in reason_keys:
+            translated = lang_cfg["reasons"].get(rk) or VOICE_TEMPLATES["en"]["reasons"].get(rk, rk)
+            translated_reasons.append(translated)
+        
+        if not translated_reasons:
+            reasons_str = lang_cfg["no_reasons"]
+        else:
+            reasons_str = lang_cfg["and_joiner"].join(translated_reasons)
+            
+    return lang_cfg["template"].format(amount=amount, payee=payee, reasons=reasons_str)
 
 
-def generate_voice_alert(text: str) -> bytes | None:
+def generate_voice_alert(text: str, language: str = "en") -> bytes | None:
     """Generate MP3 bytes via gTTS; save via temp file. Returns None on failure."""
     tmp_path = None
     try:
@@ -142,7 +628,7 @@ def generate_voice_alert(text: str) -> bytes | None:
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
-        gTTS(text=text, lang="en").save(tmp_path)
+        gTTS(text=text, lang=language).save(tmp_path)
         return Path(tmp_path).read_bytes()
     except Exception:
         return None
@@ -167,29 +653,33 @@ def reset_chat_if_user_changed(user_id: str):
 
 
 def render_credit_score(credit: dict | None):
-    st.subheader("Credit Score")
+    open_section_card("Credit Score", "Latest computed score and component breakdown")
     if not credit:
         st.info("No credit score computed for this user yet.")
+        close_section_card()
         return
 
-    st.metric("Overall Score", f"{credit['score']:.0f}", help="Range: 300–900")
-    st.caption(f"Computed at {credit['computed_at']}")
+    st.markdown(
+        f"""
+        <div class="score-hero">
+            <div class="score-label">Overall Score</div>
+            <div class="score-value">{credit['score']:.0f}</div>
+            <div class="muted-text">Range 300–900 · Computed {credit['computed_at']}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Income Regularity", f"{credit['income_regularity']:.2f}")
-        st.progress(min(max(credit["income_regularity"], 0.0), 1.0))
-    with col2:
-        st.metric("Expense Ratio", f"{credit['expense_ratio']:.2f}")
-        st.progress(min(max(credit["expense_ratio"], 0.0), 1.0))
-    with col3:
-        st.metric("Volatility", f"{credit['volatility']:.2f}")
-        st.progress(min(max(credit["volatility"], 0.0), 1.0))
+    st.markdown(
+        progress_bar_html("Income Regularity", credit["income_regularity"])
+        + progress_bar_html("Expense Ratio", credit["expense_ratio"])
+        + progress_bar_html("Volatility", credit["volatility"]),
+        unsafe_allow_html=True,
+    )
+    close_section_card()
 
 
-def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
-    st.subheader("Financial Events")
-
+def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, language: str = "en"):
     events = []
 
     for _, row in fraud_df.iterrows():
@@ -202,7 +692,12 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                     f"Risk {row['risk_score']:.2f} — ₹{row['amount']:.2f} "
                     f"{row['direction']} to {payee} on {row['txn_timestamp']}"
                 ),
+                "display_summary": (
+                    f"₹{row['amount']:.2f} {row['direction']} to {payee} "
+                    f"on {row['txn_timestamp']}"
+                ),
                 "detail": row["reasons_plain"],
+                "raw_reasons": row["reasons"],
                 "flag_id": row["flag_id"],
                 "risk_score": row["risk_score"],
                 "amount": row["amount"],
@@ -220,6 +715,10 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                     f"{merchant} — avg ₹{row['avg_amount']:.2f} every "
                     f"{row['interval_days']} days"
                 ),
+                "display_summary": (
+                    f"{merchant} — avg ₹{row['avg_amount']:.2f} every "
+                    f"{row['interval_days']} days"
+                ),
                 "detail": (
                     f"Last charge: {row['last_txn_date']} · "
                     f"Next expected: {row['next_expected_date']} · "
@@ -233,26 +732,32 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
             }
         )
 
-    if not events:
-        st.info("No fraud flags or subscriptions detected for this user.")
-        return
+    fraud_events = [e for e in events if e["type"] == "Fraud Flag"]
+    sub_events = [e for e in events if e["type"] == "Subscription"]
 
-    # Fraud first (by risk), then subscriptions by date
-    events.sort(
-        key=lambda e: (
-            0 if e["type"] == "Fraud Flag" else 1,
-            -e["risk_score"] if e["type"] == "Fraud Flag" else 0,
-            e["sort_date"] or "",
-        )
+    fraud_events.sort(key=lambda e: (-e["risk_score"], e["sort_date"] or ""))
+    sub_events.sort(key=lambda e: e["sort_date"] or "")
+
+    open_section_card(
+        "Fraud Flags",
+        "Suspicious transactions flagged by the rule engine",
     )
-
-    for event in events:
-        icon = "🚨" if event["type"] == "Fraud Flag" else "🔁"
-        with st.container(border=True):
-            st.markdown(f"**{icon} {event['type']}**")
-            st.write(event["summary"])
-            st.caption(event["detail"])
-            if event["flag_id"]:
+    if not fraud_events:
+        st.info("No fraud flags detected for this user.")
+    else:
+        for event in fraud_events:
+            with st.container(border=True):
+                st.markdown(
+                    f"""
+                    <div class="event-card-header">
+                        <span class="event-type">Fraud Alert</span>
+                        {risk_badge_html(event["risk_score"])}
+                    </div>
+                    <p class="event-summary">{event["display_summary"]}</p>
+                    <p class="event-detail">{event["detail"]}</p>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 btn_col1, btn_col2 = st.columns(2)
                 with btn_col1:
                     if st.button(
@@ -273,9 +778,10 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                         alert_text = build_voice_alert_text(
                             event["amount"],
                             event["counterparty"],
-                            event["detail"],
+                            event["raw_reasons"],
+                            language=language,
                         )
-                        audio_bytes = generate_voice_alert(alert_text)
+                        audio_bytes = generate_voice_alert(alert_text, language=language)
                         audio_key = f"voice_audio_{event['flag_id']}"
                         error_key = f"voice_error_{event['flag_id']}"
                         if audio_bytes:
@@ -295,13 +801,35 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame):
                         "Could not generate voice alert — gTTS may be unavailable "
                         "or you may be offline. The text alert is still shown above."
                     )
+    close_section_card()
+
+    open_section_card(
+        "Subscriptions",
+        "Recurring payments detected from transaction patterns",
+    )
+    if not sub_events:
+        st.info("No recurring subscriptions detected for this user.")
+    else:
+        for event in sub_events:
+            with st.container(border=True):
+                st.markdown(
+                    f"""
+                    <div class="event-card-header">
+                        <span class="event-type">Recurring Payment</span>
+                        {subscription_badge_html()}
+                    </div>
+                    <p class="event-summary">{event["display_summary"]}</p>
+                    <p class="event-detail">{event["detail"]}</p>
+                    """,
+                    unsafe_allow_html=True,
+                )
+    close_section_card()
 
 
-def render_chat(conn, user_id: str):
-    st.subheader("Ask about your data")
-    st.caption(
-        "Ask about fraud flags, subscriptions, or your credit score. "
-        "Financial advice is out of scope."
+def render_chat(conn, user_id: str, language: str = "en"):
+    open_section_card(
+        "Ask about your data",
+        "Ask about fraud flags, subscriptions, or your credit score. Financial advice is out of scope.",
     )
 
     for msg in st.session_state.messages:
@@ -317,7 +845,7 @@ def render_chat(conn, user_id: str):
             st.write(question)
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                answer = explain(user_id, question, conn)
+                answer = explain(user_id, question, conn, language=language)
             st.write(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
@@ -327,19 +855,31 @@ def render_chat(conn, user_id: str):
             st.write(prompt)
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                answer = explain(user_id, prompt, conn)
+                answer = explain(user_id, prompt, conn, language=language)
             st.write(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
+
+    close_section_card()
 
 
 def main():
     st.set_page_config(
-        page_title="UPI Transaction Intelligence",
+        page_title="PayLens",
         page_icon="💳",
         layout="wide",
     )
-    st.title("UPI Transaction Intelligence Platform")
-    st.caption("Rule-engine insights + Groq-powered explanations")
+    inject_custom_css()
+
+    st.markdown(
+        """
+        <div class="page-header">
+            <h1 class="brand-title">PayLens</h1>
+            <div class="brand-accent-bar"></div>
+            <p class="brand-subtitle">Rule-engine insights with Groq-powered explanations</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     init_session_state()
     conn = get_connection()
@@ -349,16 +889,25 @@ def main():
         st.error("No users found. Run `python main.py` first to generate the database.")
         return
 
-    user_labels = {f"{u['name']} ({u['user_id']})": u["user_id"] for u in users}
-    selected_label = st.selectbox("Select user", list(user_labels.keys()))
-    user_id = user_labels[selected_label]
-    reset_chat_if_user_changed(user_id)
+    open_section_card("Account", "Select user and language")
+    col1, col2 = st.columns(2)
+    with col1:
+        user_labels = {f"{u['name']} ({u['user_id']})": u["user_id"] for u in users}
+        selected_label = st.selectbox("Select user", list(user_labels.keys()))
+        user_id = user_labels[selected_label]
+        reset_chat_if_user_changed(user_id)
+    with col2:
+        lang_options = {"English": "en", "Hindi": "hi", "Tamil": "ta"}
+        selected_lang_name = st.selectbox("Select language", list(lang_options.keys()))
+        selected_lang = lang_options.get(selected_lang_name, "en")
 
     selected_user = next(u for u in users if u["user_id"] == user_id)
-    st.write(
-        f"**{selected_user['name']}** · "
-        f"Estimated income ₹{selected_user['monthly_income_estimate']:,.0f}/mo"
+    st.markdown(
+        f'<p class="user-meta"><strong>{selected_user["name"]}</strong> · '
+        f'Estimated income ₹{selected_user["monthly_income_estimate"]:,.0f}/mo</p>',
+        unsafe_allow_html=True,
     )
+    close_section_card()
 
     fraud_df = load_fraud_flags(conn, user_id)
     subs_df = load_subscriptions(conn, user_id)
@@ -366,7 +915,7 @@ def main():
 
     col_feed, col_score = st.columns([2, 1])
     with col_feed:
-        render_financial_events(fraud_df, subs_df)
+        render_financial_events(fraud_df, subs_df, language=selected_lang)
     with col_score:
         render_credit_score(credit)
 
@@ -392,8 +941,7 @@ def main():
         with st.expander("Subscriptions table"):
             st.dataframe(subs_df, use_container_width=True, hide_index=True)
 
-    st.divider()
-    render_chat(conn, user_id)
+    render_chat(conn, user_id, language=selected_lang)
 
 
 if __name__ == "__main__":

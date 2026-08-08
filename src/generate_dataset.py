@@ -35,7 +35,7 @@ random.seed(42)  # reproducible dataset across demo runs
 DB_PATH = "../data/upi_transactions.db"
 SCHEMA_PATH = "schema.sql"
 
-NUM_USERS = 12
+NUM_USERS = 40
 SIMULATION_DAYS = 180  # 6 months of history — enough for subscription intervals to repeat 4-6 times
 
 # Known "subscription-style" merchants — recurring, fixed-ish amount
@@ -71,7 +71,9 @@ def create_users(conn):
         user_id = f"user_{i+1:03d}"
         name = fake.name()
         # Some users have regular salary income, some (gig workers) have irregular income
-        income_estimate = random.choice([15000, 22000, 30000, 45000, 60000])
+        income_estimate = random.choice(
+            [12000, 15000, 18000, 22000, 28000, 35000, 45000, 55000, 70000, 90000]
+        )
         users.append((user_id, name, income_estimate))
 
     conn.executemany(
@@ -191,21 +193,28 @@ def generate_income(user_id, monthly_income, txns):
             })
 
 
+def _anomaly_amount() -> float:
+    """Vary spike sizes so risk scores spread across low and high tiers."""
+    if random.random() < 0.45:
+        return round(random.uniform(5000, 10000), 2)
+    return round(random.uniform(15000, 40000), 2)
+
+
 def inject_fraud_anomalies(user_id, txns):
-    """Deliberately inject 2-4 suspicious transactions per user so the
+    """Deliberately inject 3-7 suspicious transactions per user so the
     fraud detection module has real signal to catch. Types:
     1. Odd-hour large payment to a brand-new counterparty
     2. Sudden amount spike vs user's normal spending
     3. High-velocity burst (multiple payments in a short window)
     """
-    n_anomalies = random.randint(2, 4)
+    n_anomalies = random.randint(3, 7)
     for i in range(n_anomalies):
         anomaly_type = random.choice(["odd_hour_new_payee", "amount_spike", "velocity_burst"])
         day = random.randint(0, SIMULATION_DAYS - 1)
 
         if anomaly_type in ("odd_hour_new_payee", "amount_spike"):
             ts = random_timestamp(day, business_hours=False)
-            amount = round(random.uniform(8000, 25000), 2)  # much larger than typical spend
+            amount = _anomaly_amount()
             fake_vpa = f"unknown{random.randint(1000,9999)}@okaxis"
             txns.append({
                 "txn_id": str(uuid.uuid4()),
@@ -222,13 +231,14 @@ def inject_fraud_anomalies(user_id, txns):
             })
         else:  # velocity_burst: 3 rapid payments within ~10 minutes
             base_ts = random_timestamp(day)
+            burst_amount = _anomaly_amount() / 3
             for j in range(3):
                 ts = base_ts + timedelta(minutes=j * 3)
                 txns.append({
                     "txn_id": str(uuid.uuid4()),
                     "user_id": user_id,
                     "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
-                    "amount": round(random.uniform(2000, 5000), 2),
+                    "amount": round(burst_amount * random.uniform(0.85, 1.15), 2),
                     "direction": "debit",
                     "counterparty_vpa": f"burst{random.randint(100,999)}@okicici",
                     "counterparty_name": "Unknown",

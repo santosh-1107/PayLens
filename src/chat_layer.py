@@ -24,8 +24,14 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 MAX_TOKENS = 300
 RECENT_FRAUD_LIMIT = 10
 
-# Session cache: identical (user_id, question) -> response
-_response_cache: dict[tuple[str, str], str] = {}
+_LANG_MAP = {
+    "en": "English",
+    "hi": "Hindi",
+    "ta": "Tamil",
+}
+
+# Session cache: identical (user_id, question, language) -> response
+_response_cache: dict[tuple[str, str, str], str] = {}
 
 # Patterns that indicate investment / trading advice
 _ADVICE_PATTERNS = [
@@ -190,8 +196,11 @@ def _build_structured_summary(context: dict) -> str:
     return "\n".join(parts)
 
 
-def _build_system_prompt(structured_summary: str) -> str:
+def _build_system_prompt(structured_summary: str, language: str = "en") -> str:
+    language_name = _LANG_MAP.get(language, "English")
     return f"""You are a financial data explainer for a UPI transaction intelligence platform.
+
+Respond in {language_name} language.
 
 Your role:
 - Explain THIS user's financial data in plain language based ONLY on the structured summaries below.
@@ -241,18 +250,18 @@ def _call_groq(system_prompt: str, user_question: str) -> str:
     return response.choices[0].message.content or ""
 
 
-def explain(user_id: str, user_question: str, conn) -> str:
+def explain(user_id: str, user_question: str, conn, language: str = "en") -> str:
     """
     Pull structured data for user_id, call Groq to narrate it, and return
     a guardrailed plain-language answer. Falls back to a template on API failure.
     """
-    cache_key = (user_id, user_question.strip().lower())
+    cache_key = (user_id, user_question.strip().lower(), language)
     if cache_key in _response_cache:
         return _response_cache[cache_key]
 
     context = _fetch_user_context(conn, user_id)
     structured_summary = _build_structured_summary(context)
-    system_prompt = _build_system_prompt(structured_summary)
+    system_prompt = _build_system_prompt(structured_summary, language=language)
 
     try:
         raw_response = _call_groq(system_prompt, user_question)
@@ -268,15 +277,13 @@ if __name__ == "__main__":
     DB_PATH = "../data/upi_transactions.db"
 
     conn = sqlite3.connect(DB_PATH)
-    first_user = conn.execute("SELECT user_id FROM users LIMIT 1").fetchone()
 
-    if not first_user:
-        print("No users found in the database. Run main.py first.")
-    else:
-        user_id = first_user[0]
-        sample_question = "Why were my recent transactions flagged, and how is my credit score calculated?"
-        print(f"User: {user_id}")
-        print(f"Question: {sample_question}\n")
-        print(explain(user_id, sample_question, conn))
+    user_id = "user_001"
+    sample_question = "What stock should I invest in?"
+    language = "en"
+    print(f"User: {user_id}")
+    print(f"Question: {sample_question}")
+    print(f"Language: {language}\n")
+    print(explain(user_id, sample_question, conn, language=language))
 
     conn.close()
