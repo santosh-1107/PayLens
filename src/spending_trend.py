@@ -45,7 +45,14 @@ def detect_spending_income_divergence(user_id: str, conn: sqlite3.Connection) ->
         """
         SELECT substr(timestamp, 1, 7) AS month,
                SUM(CASE WHEN direction = 'credit' THEN amount ELSE 0 END) AS total_credit,
-               SUM(CASE WHEN direction = 'debit' THEN amount ELSE 0 END) AS total_debit
+               SUM(CASE
+                   WHEN direction = 'debit'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM fraud_flags ff WHERE ff.txn_id = transactions.txn_id
+                        )
+                   THEN amount
+                   ELSE 0
+               END) AS total_debit
         FROM transactions
         WHERE user_id = ? AND substr(timestamp, 1, 7) != ?
         GROUP BY month
