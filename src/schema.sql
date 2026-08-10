@@ -70,3 +70,67 @@ CREATE TABLE IF NOT EXISTS credit_scores (
     computed_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
+
+-- Output of complaint filing module (demo)
+CREATE TABLE IF NOT EXISTS complaints (
+    complaint_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    txn_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    details TEXT,
+    status TEXT NOT NULL,
+    filed_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (txn_id) REFERENCES transactions(txn_id)
+);
+
+-- Output of subscription cancellation actions (demo)
+CREATE TABLE IF NOT EXISTS subscription_actions (
+    action_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    subscription_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    requested_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (subscription_id) REFERENCES detected_subscriptions(subscription_id)
+);
+
+-- Income authenticity detection output (circular transactions)
+CREATE TABLE IF NOT EXISTS income_authenticity_flags (
+    flag_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    counterparty_vpa TEXT NOT NULL,
+    counterparty_name TEXT,
+    debit_txn_id TEXT NOT NULL,
+    debit_timestamp TEXT NOT NULL,
+    debit_amount REAL NOT NULL,
+    credit_txn_id TEXT NOT NULL,
+    credit_timestamp TEXT NOT NULL,
+    credit_amount REAL NOT NULL,
+    detected_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (debit_txn_id) REFERENCES transactions(txn_id),
+    FOREIGN KEY (credit_txn_id) REFERENCES transactions(txn_id)
+);
+
+-- Shared risky counterparties output
+CREATE TABLE IF NOT EXISTS shared_risk_counterparties (
+    counterparty_vpa TEXT PRIMARY KEY,
+    counterparty_name TEXT,
+    unique_user_count INTEGER NOT NULL,
+    total_flag_count INTEGER NOT NULL,
+    detected_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Spending vs income trend output
+CREATE TABLE IF NOT EXISTS spending_trends (
+    trend_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    income_trend_pct REAL NOT NULL,
+    spending_trend_pct REAL NOT NULL,
+    is_flagged INTEGER NOT NULL,
+    computed_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+

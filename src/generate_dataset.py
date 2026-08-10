@@ -249,12 +249,83 @@ def inject_fraud_anomalies(user_id, txns):
                 })
 
 
+def generate_circular_transactions(user_id, txns):
+    """Simulates circular transaction patterns ('salary washing') for about 15% of users.
+    Returns True if injected, False otherwise."""
+    if random.random() >= 0.15:
+        return False
+
+    circle_id = random.randint(100, 999)
+    counterparty_vpa = f"circle{circle_id}@upi"
+    counterparty_name = f"Circle Partner {circle_id}"
+
+    n_months = random.randint(3, 4)
+    max_start_month = (SIMULATION_DAYS // 30) - n_months
+    if max_start_month < 0:
+        max_start_month = 0
+    start_month = random.randint(0, max_start_month)
+
+    amount = round(random.uniform(15000, 30000), 2)
+
+    for m in range(start_month, start_month + n_months):
+        day_credit = m * 30 + random.randint(1, 10)
+        ts_credit = random_timestamp(day_credit)
+        txns.append({
+            "txn_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "timestamp": ts_credit.strftime("%Y-%m-%d %H:%M:%S"),
+            "amount": amount,
+            "direction": "credit",
+            "counterparty_vpa": counterparty_vpa,
+            "counterparty_name": counterparty_name,
+            "category": "salary",
+            "txn_type": "P2P",
+            "narration": "UPI/Salary/Credit",
+            "is_synthetic_anomaly": 0,
+        })
+
+        day_debit = day_credit + random.randint(2, 5)
+        if day_debit >= SIMULATION_DAYS:
+            day_debit = SIMULATION_DAYS - 1
+
+        ts_debit = random_timestamp(day_debit)
+        debit_amount = round(amount * random.uniform(0.86, 0.95), 2)
+
+        txns.append({
+            "txn_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "timestamp": ts_debit.strftime("%Y-%m-%d %H:%M:%S"),
+            "amount": debit_amount,
+            "direction": "debit",
+            "counterparty_vpa": counterparty_vpa,
+            "counterparty_name": counterparty_name,
+            "category": "p2p",
+            "txn_type": "P2P",
+            "narration": "UPI/Payment/Transfer",
+            "is_synthetic_anomaly": 0,
+        })
+
+    return True
+
+
 def main():
     # Idempotent re-runs: wipe any existing database file first so this
     # script can be run repeatedly (e.g. via main.py) without unique-
     # constraint errors from leftover data.
     if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
+        try:
+            os.remove(DB_PATH)
+        except PermissionError:
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = OFF;")
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = [r[0] for r in cur.fetchall() if r[0] != 'sqlite_sequence']
+            for table in tables:
+                cur.execute(f"DELETE FROM {table};")
+            cur.execute("PRAGMA foreign_keys = ON;")
+            conn.commit()
+            conn.close()
 
     conn = sqlite3.connect(DB_PATH)
     create_schema(conn)
@@ -267,11 +338,14 @@ def main():
     user_income_map = dict(cur.fetchall())
 
     all_txns = []
+    circular_users_count = 0
     for user_id in users:
         generate_subscriptions_for_user(user_id, all_txns)
         generate_regular_spending(user_id, all_txns)
         generate_income(user_id, user_income_map[user_id], all_txns)
         inject_fraud_anomalies(user_id, all_txns)
+        if generate_circular_transactions(user_id, all_txns):
+            circular_users_count += 1
 
     # Sort by timestamp for realism (not required, but nice for eyeballing the data)
     all_txns.sort(key=lambda t: t["timestamp"])
@@ -294,6 +368,7 @@ def main():
     print(f"   - Injected fraud anomalies: {cur.fetchone()[0]}")
     cur.execute("SELECT COUNT(*) FROM transactions WHERE category = 'subscription'")
     print(f"   - Subscription-pattern transactions: {cur.fetchone()[0]}")
+    print(f"   - Users with circular transactions: {circular_users_count}")
 
     conn.close()
 
