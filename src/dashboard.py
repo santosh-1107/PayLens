@@ -411,6 +411,101 @@ def inject_custom_css():
             border-color: var(--paylens-border) !important;
             margin: 28px 0 !important;
         }}
+
+        /* Login Page custom styling */
+        .login-card-anchor {{
+            display: none;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] {{
+            background-color: #FFFFFF !important;
+            border-radius: 20px !important;
+            box-shadow: 0 10px 45px rgba(140, 90, 60, 0.04) !important;
+            border: 1px solid #E5DDD2 !important;
+            padding: 40px !important;
+            max-width: 480px !important;
+            margin: 0 auto !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input {{
+            background-color: #FAF6F0 !important;
+            border: 1px solid #E5DDD2 !important;
+            border-radius: 12px !important;
+            color: #2B2B2B !important;
+            padding: 12px 16px 12px 42px !important;
+            height: 48px !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input:focus {{
+            border-color: #8C5A3C !important;
+            box-shadow: 0 0 0 2px rgba(140, 90, 60, 0.1) !important;
+        }}
+        
+        /* Operator ID input icon */
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:first-of-type input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm1 9h10v1H3zm0-2h10v1H3zm0-2h4v1H3z"/></svg>') !important;
+            background-repeat: no-repeat !important;
+            background-position: 14px center !important;
+        }}
+        
+        /* Passcode input icon */
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:nth-of-type(2) input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/></svg>') !important;
+            background-repeat: no-repeat !important;
+            background-position: 14px center !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container {{
+            max-width: 480px !important;
+            margin: 0 auto 24px auto !important;
+            background-color: #F3ECE0 !important;
+            border-radius: 12px !important;
+            padding: 4px !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container [data-testid="column"] button {{
+            background-color: transparent !important;
+            color: #8C8273 !important;
+            border: none !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease !important;
+            height: 38px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container button[kind="secondary"] {{
+            background-color: transparent !important;
+            color: #8C8273 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container button[kind="primary"] {{
+            background-color: #FFFFFF !important;
+            color: #8C5A3C !important;
+            border: none !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button {{
+            background-color: #8C5A3C !important;
+            color: #FFFFFF !important;
+            border-radius: 10px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            border: none !important;
+            height: 48px !important;
+            transition: background-color 0.2s ease !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button:hover {{
+            background-color: #7A4F30 !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -1582,45 +1677,81 @@ def render_user_transactions(conn, user_id: str, language: str = "en"):
 
 
 def render_login_page(conn):
+    st.markdown('<div class="login-card-anchor"></div>', unsafe_allow_html=True)
+    
+    if "login_mode" not in st.session_state:
+        st.session_state.login_mode = "user"
+
     st.markdown(
         """
-        <div style="max-width: 480px; margin: 60px auto 20px auto; padding: 40px; background-color: #FFFFFF; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); border: 1px solid #E5DDD2; text-align: center;">
-            <div style="font-size: 2.5rem; font-weight: 700; color: #E8A87C; margin-bottom: 4px; letter-spacing: -0.02em;">PayLens</div>
-            <div style="width: 48px; height: 4px; background: #E8A87C; margin: 8px auto 16px auto; border-radius: 999px;"></div>
-            <h3 style="color: #2B2B2B; margin-top: 0; margin-bottom: 8px; font-weight: 600; font-size: 1.25rem;">Welcome Back</h3>
-            <p style="color: #8A8378; font-size: 0.925rem; margin-bottom: 24px; line-height: 1.5;">Access alternate credit scores and instant cash-flow loan approvals.</p>
+        <div style="max-width: 480px; margin: 60px auto 10px auto; text-align: center;">
+            <div style="font-size: 3.25rem; font-weight: 700; color: #8C5A3C; margin-bottom: 2px; letter-spacing: -0.03em; font-family: 'Plus Jakarta Sans', sans-serif;">PayLens</div>
+            <p style="color: #8C8273; font-size: 0.95rem; margin-bottom: 30px; letter-spacing: 0.05em; font-weight: 500;">Fintech Operator Platform</p>
         </div>
         """,
         unsafe_allow_html=True
     )
-    col1, col2, col3 = st.columns([1, 1.8, 1])
-    with col2:
-        with st.form("login_form"):
-            username = st.text_input("Username / ID", placeholder="e.g. user_006 or banker_001")
-            password = st.text_input("Password", type="password", placeholder="••••••••")
-            submitted = st.form_submit_button("Log In to Account", use_container_width=True)
-            if submitted:
-                if not username or not password:
-                    st.error("Please enter both username and password.")
-                else:
-                    res = login_user(conn, username, password)
-                    if res:
-                        user_id, role = res
+    
+    # Pill Tab switcher container
+    st.markdown('<div class="tab-container">', unsafe_allow_html=True)
+    col_tab1, col_tab2 = st.columns(2)
+    with col_tab1:
+        if st.button("User", use_container_width=True, type="primary" if st.session_state.login_mode == "user" else "secondary", key="btn_login_tab_user"):
+            st.session_state.login_mode = "user"
+            st.rerun()
+    with col_tab2:
+        if st.button("Banker", use_container_width=True, type="primary" if st.session_state.login_mode == "banker" else "secondary", key="btn_login_tab_banker"):
+            st.session_state.login_mode = "banker"
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    is_client = st.session_state.login_mode == "user"
+    
+    with st.form("login_form"):
+        username = st.text_input("Operator ID" if is_client else "Banker ID", placeholder="Enter your ID")
+        password = st.text_input("Passcode", type="password", placeholder="••••••••")
+        
+        col_rem, col_rec = st.columns(2)
+        with col_rem:
+            remember_device = st.checkbox("Remember device", value=False)
+        with col_rec:
+            st.markdown(
+                '<p style="text-align: right; margin-top: 6px; margin-bottom: 0px;">'
+                '<a href="#" style="color: #8C5A3C; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Recovery</a>'
+                '</p>',
+                unsafe_allow_html=True
+            )
+            
+        submitted = st.form_submit_button("Authenticate Session \u2192", use_container_width=True)
+        if submitted:
+            if not username or not password:
+                st.error("Please enter both ID and passcode.")
+            else:
+                res = login_user(conn, username, password)
+                if res:
+                    user_id, role = res
+                    if is_client and role != "user":
+                        st.error("This account belongs to a Banker. Please authenticate through the Banker Portal.")
+                    elif not is_client and role != "banker":
+                        st.error("This account belongs to a Client. Please authenticate through the User Portal.")
+                    else:
                         st.session_state.logged_in = True
                         st.session_state.user_id = user_id
                         st.session_state.role = role
                         st.session_state.chat_user_id = user_id
                         st.session_state.messages = []
-                        st.success("Logged in successfully!")
+                        st.success("Authenticated successfully!")
                         st.rerun()
-                    else:
-                        st.error("Invalid username or password.")
-        
-        st.info(
-            "🔑 **Demo Credentials:**\n\n"
-            "- **Client Access:** Use `user_006` or `user_010` (password: `demo123`)\n"
-            "- **Banker Access:** Use `banker_001` or `banker_002` (password: `demo123`)"
-        )
+                else:
+                    st.error("Invalid credentials.")
+
+    st.markdown(
+        '<p style="text-align: center; color: #8C8273; font-size: 0.85rem; margin-top: 40px; font-weight: 500;">'
+        '<span style="margin-right: 8px; vertical-align: middle;">🛡️</span>End-to-End Encrypted Connection'
+        '</p>',
+        unsafe_allow_html=True
+    )
+
 
 
 def calculate_income_stats(conn, user_id: str) -> dict:
