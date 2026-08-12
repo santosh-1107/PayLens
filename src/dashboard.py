@@ -119,6 +119,36 @@ def inject_custom_css():
             margin-bottom: 24px !important;
         }}
 
+        /* Reset card styling for top header columns to make layout clean */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.global-search-marker),
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.profile-text-marker),
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.profile-logout-marker) {{
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0px !important;
+            margin-bottom: 0px !important;
+        }}
+
+        /* Premium Brand-Colored Logout Button */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.profile-logout-marker) button {{
+            color: {c["primary"]} !important;
+            border: 1.5px solid {c["primary"]} !important;
+            background-color: transparent !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 0.35rem 1.2rem !important;
+            transition: all 0.2s ease-in-out !important;
+            height: 38px !important;
+            margin-top: 4px !important;
+        }}
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.profile-logout-marker) button:hover {{
+            color: #FFFFFF !important;
+            background-color: {c["primary"]} !important;
+            border-color: {c["primary"]} !important;
+            box-shadow: 0 4px 12px rgba(147, 79, 34, 0.15) !important;
+        }}
+
         .section-title {{
             font-size: 1.125rem;
             margin: 0 0 4px 0;
@@ -704,8 +734,9 @@ def render_top_header():
         st.text_input("Search", placeholder="Search transactions, insights, accounts...", label_visibility="collapsed", key="global_search")
     with col_profile:
         role_label = "Banker" if st.session_state.role == "banker" else "Client User"
-        col_prof_text, col_prof_logout = st.columns([4, 1])
+        col_prof_text, col_prof_logout = st.columns([4.2, 1])
         with col_prof_text:
+            st.markdown('<div class="profile-text-marker"></div>', unsafe_allow_html=True)
             st.markdown(
                 f"""
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 4px;">
@@ -727,6 +758,7 @@ def render_top_header():
                 unsafe_allow_html=True
             )
         with col_prof_logout:
+            st.markdown('<div class="profile-logout-marker"></div>', unsafe_allow_html=True)
             if st.button("Logout", key="btn_header_logout", use_container_width=True):
                 st.session_state.logged_in = False
                 st.session_state.user_id = None
