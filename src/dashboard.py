@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from chat_layer import explain
+from auth import login_user
 
 DB_PATH = "../data/upi_transactions.db"
 
@@ -410,6 +411,101 @@ def inject_custom_css():
             border-color: var(--paylens-border) !important;
             margin: 28px 0 !important;
         }}
+
+        /* Login Page custom styling */
+        .login-card-anchor {{
+            display: none;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] {{
+            background-color: #FFFFFF !important;
+            border-radius: 20px !important;
+            box-shadow: 0 10px 45px rgba(140, 90, 60, 0.04) !important;
+            border: 1px solid #E5DDD2 !important;
+            padding: 40px !important;
+            max-width: 480px !important;
+            margin: 0 auto !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input {{
+            background-color: #FAF6F0 !important;
+            border: 1px solid #E5DDD2 !important;
+            border-radius: 12px !important;
+            color: #2B2B2B !important;
+            padding: 12px 16px 12px 42px !important;
+            height: 48px !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input:focus {{
+            border-color: #8C5A3C !important;
+            box-shadow: 0 0 0 2px rgba(140, 90, 60, 0.1) !important;
+        }}
+        
+        /* Operator ID input icon */
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:first-of-type input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm1 9h10v1H3zm0-2h10v1H3zm0-2h4v1H3z"/></svg>') !important;
+            background-repeat: no-repeat !important;
+            background-position: 14px center !important;
+        }}
+        
+        /* Passcode input icon */
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:nth-of-type(2) input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/></svg>') !important;
+            background-repeat: no-repeat !important;
+            background-position: 14px center !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container {{
+            max-width: 480px !important;
+            margin: 0 auto 24px auto !important;
+            background-color: #F3ECE0 !important;
+            border-radius: 12px !important;
+            padding: 4px !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container [data-testid="column"] button {{
+            background-color: transparent !important;
+            color: #8C8273 !important;
+            border: none !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease !important;
+            height: 38px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container button[kind="secondary"] {{
+            background-color: transparent !important;
+            color: #8C8273 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) .tab-container button[kind="primary"] {{
+            background-color: #FFFFFF !important;
+            color: #8C5A3C !important;
+            border: none !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button {{
+            background-color: #8C5A3C !important;
+            color: #FFFFFF !important;
+            border-radius: 10px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            border: none !important;
+            height: 48px !important;
+            transition: background-color 0.2s ease !important;
+        }}
+        
+        .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button:hover {{
+            background-color: #7A4F30 !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -525,7 +621,7 @@ def get_connection():
 
 def load_users(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT user_id, name, monthly_income_estimate FROM users ORDER BY name"
+        "SELECT user_id, name, monthly_income_estimate FROM users WHERE role = 'user' ORDER BY name"
     ).fetchall()
     return [
         {"user_id": r[0], "name": r[1], "monthly_income_estimate": r[2]}
@@ -835,6 +931,14 @@ def init_session_state():
         st.session_state.chat_user_id = None
     if "pending_question" not in st.session_state:
         st.session_state.pending_question = None
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = None
+    if "role" not in st.session_state:
+        st.session_state.role = None
+    if "txn_limit" not in st.session_state:
+        st.session_state.txn_limit = 50
 
 
 def reset_chat_if_user_changed(user_id: str):
@@ -843,7 +947,54 @@ def reset_chat_if_user_changed(user_id: str):
         st.session_state.chat_user_id = user_id
 
 
-def render_credit_score(credit: dict | None):
+CREDIT_SCORE_EXPLANATION_LOCALIZATION = {
+    "en": {
+        "expander_title": "How is this score calculated?",
+        "formula_title": "Mathematical Breakdown",
+        "income_reg_label": "Income Regularity",
+        "expense_ratio_label": "Expense Ratio",
+        "volatility_label": "Volatility",
+        "income_reg_desc": "Your income arrives at consistent intervals and amounts — this is the strongest factor in your score (45% weight).",
+        "expense_ratio_desc": "You're spending significantly less than you earn — a low score here usually means overspending relative to income, but a very low number can also reflect limited transaction history.",
+        "volatility_desc": "Your month-to-month cash flow is highly variable — lower stability here reduces your score.",
+    },
+    "hi": {
+        "expander_title": "यह स्कोर कैसे गिना जाता है?",
+        "formula_title": "गणितीय विश्लेषण (Mathematical Breakdown)",
+        "income_reg_label": "आय की नियमितता (Income Regularity)",
+        "expense_ratio_label": "व्यय अनुपात (Expense Ratio)",
+        "volatility_label": "उतार-चढ़ाव (Volatility)",
+        "income_reg_desc": "आपकी आय लगातार अंतराल और मात्रा में आती है — यह आपके स्कोर में सबसे मजबूत कारक है (45% भार)।",
+        "expense_ratio_desc": "आप अपनी कमाई से काफी कम खर्च कर रहे हैं — यहाँ कम स्कोर का मतलब आमतौर पर आय के सापेक्ष अधिक खर्च होता है, लेकिन बहुत कम संख्या सीमित लेनदेन इतिहास को भी दर्शा सकती है।",
+        "volatility_desc": "आपका महीने-दर-महीने का कैश फ्लो अत्यधिक परिवर्तनशील है — यहाँ कम स्थिरता आपके स्कोर को कम करती है।",
+    },
+    "ta": {
+        "expander_title": "இந்த மதிப்பெண் எவ்வாறு கணக்கிடப்படுகிறது?",
+        "formula_title": "கணித முறிவு (Mathematical Breakdown)",
+        "income_reg_label": "வருமான ஒழுங்குமுறை (Income Regularity)",
+        "expense_ratio_label": "செலவு விகிதம் (Expense Ratio)",
+        "volatility_label": "பணப்புழக்க ஏற்ற இறக்கம் (Volatility)",
+        "income_reg_desc": "உங்கள் வருமானம் சீரான இடைவெளிகளிலும் அளவுகளிலும் வருகிறது — இது உங்கள் மதிப்பெண்ணில் வலுவான காரணியாகும் (45% முக்கியத்துவம்).",
+        "expense_ratio_desc": "நீங்கள் சம்பாதிப்பதை விட கணிசமாகக் குறைவாகச் செலவிடுகிறீர்கள் — இதில் குறைவான மதிப்பெண் என்பது பொதுவாக வருமானத்தை விட அதிக செலவைக் குறிக்கும், ஆனால் மிகக் குறைந்த எண் குறைந்த பரிவர்த்தனை வரலாற்றையும் பிரதிபலிக்கும்.",
+        "volatility_desc": "உங்கள் மாதாந்திர பணப்புழக்கம் மிகவும் மாறுபடக்கூடியது — இங்கு குறைந்த நிலைத்தன்மை உங்கள் மதிப்பெண்ணைக் குறைக்கும்.",
+    }
+}
+
+
+def fmt_component(v: float) -> str:
+    if round(v, 2) == round(v, 3):
+        return f"{v:.2f}"
+    return f"{v:.3f}"
+
+
+def fmt_weighted(v: float) -> str:
+    s = f"{v:.5f}"
+    while s.endswith("0") and len(s.split(".")[1]) > 2:
+        s = s[:-1]
+    return s
+
+
+def render_credit_score(credit: dict | None, language: str = "en"):
     open_section_card("Credit Score", "Latest computed score and component breakdown")
     if not credit:
         st.info("No credit score computed for this user yet.")
@@ -867,6 +1018,43 @@ def render_credit_score(credit: dict | None):
         + progress_bar_html("Volatility", credit["volatility"]),
         unsafe_allow_html=True,
     )
+
+    # Surfacing live math breakdown and localized explanation
+    income_reg = credit["income_regularity"]
+    expense_score = credit["expense_ratio"]
+    volatility_score = credit["volatility"]
+
+    income_weighted = income_reg * 0.45
+    expense_weighted = expense_score * 0.30
+    volatility_weighted = volatility_score * 0.25
+    weighted_sum = income_weighted + expense_weighted + volatility_weighted
+    score_contrib = weighted_sum * 600
+    final_computed = 300 + score_contrib
+    final_score = round(final_computed)
+
+    loc = CREDIT_SCORE_EXPLANATION_LOCALIZATION.get(language, CREDIT_SCORE_EXPLANATION_LOCALIZATION["en"])
+
+    with st.expander(loc["expander_title"]):
+        st.markdown(f"**{loc['formula_title']}**")
+        st.markdown(
+            f"""
+            ```text
+            Score = 300 + (Income Regularity × 0.45 + Expense Ratio × 0.30 + Volatility × 0.25) × 600
+            = 300 + ({fmt_component(income_reg)} × 0.45 + {fmt_component(expense_score)} × 0.30 + {fmt_component(volatility_score)} × 0.25) × 600
+            = 300 + ({fmt_weighted(income_weighted)} + {fmt_weighted(expense_weighted)} + {fmt_weighted(volatility_weighted)}) × 600
+            = 300 + {score_contrib:.2f} = {final_score}
+            ```
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f"""
+            - **{loc['income_reg_label']} ({income_reg:.2f}/1.0):** {loc['income_reg_desc']}
+            - **{loc['expense_ratio_label']} ({expense_score:.2f}/1.0):** {loc['expense_ratio_desc']}
+            - **{loc['volatility_label']} ({volatility_score:.2f}/1.0):** {loc['volatility_desc']}
+            """
+        )
+
     close_section_card()
 
 
@@ -1212,6 +1400,690 @@ def render_chat(conn, user_id: str, language: str = "en"):
     close_section_card()
 
 
+LOAN_LOCALIZATION = {
+    "en": {
+        "apply_title": "Apply for a Micro-Loan",
+        "apply_subtitle": "Request cash-flow based financing based on your alternate credit profile",
+        "current_score_label": "Your Current Credit Score:",
+        "amount_label": "Amount Requested (₹)",
+        "purpose_label": "Purpose of Loan",
+        "purposes": {
+            "Business Expansion": "Business Expansion",
+            "Personal / Household": "Personal / Household",
+            "Medical / Emergency": "Medical / Emergency",
+            "Other": "Other"
+        },
+        "submit_btn": "Submit Loan Application",
+        "success_msg": "Loan application submitted successfully! It is now pending review.",
+        "history_title": "Your Loan Applications",
+        "history_subtitle": "Status and history of submitted applications",
+        "no_apps": "You have not submitted any loan applications yet.",
+        "headers": {
+            "applied_at": "Applied Date",
+            "amount_requested": "Requested (₹)",
+            "purpose": "Purpose",
+            "status": "Status",
+            "reviewed_by": "Reviewed By",
+            "reviewed_at": "Reviewed Date",
+            "decision_notes": "Decision Notes"
+        },
+        "status_labels": {
+            "pending": "⏳ Pending",
+            "approved": "✅ Approved",
+            "rejected": "❌ Rejected"
+        }
+    },
+    "hi": {
+        "apply_title": "माइक्रो-लोन (ऋण) के लिए आवेदन करें",
+        "apply_subtitle": "अपने वैकल्पिक क्रेडिट प्रोफाइल के आधार पर कैश-फ्लो आधारित वित्तपोषण का अनुरोध करें",
+        "current_score_label": "आपका वर्तमान क्रेडिट स्कोर:",
+        "amount_label": "अनुरोधित राशि (₹)",
+        "purpose_label": "ऋण का उद्देश्य",
+        "purposes": {
+            "Business Expansion": "व्यवसाय विस्तार (Business Expansion)",
+            "Personal / Household": "व्यक्तिगत / घरेलू (Personal / Household)",
+            "Medical / Emergency": "चिकित्सा / आपातकालीन (Medical / Emergency)",
+            "Other": "अन्य (Other)"
+        },
+        "submit_btn": "ऋण आवेदन जमा करें",
+        "success_msg": "ऋण आवेदन सफलतापूर्वक जमा हो गया! यह अब समीक्षा के लिए लंबित है।",
+        "history_title": "आपके ऋण आवेदन",
+        "history_subtitle": "जमा किए गए आवेदनों की स्थिति और इतिहास",
+        "no_apps": "आपने अभी तक कोई ऋण आवेदन जमा नहीं किया है।",
+        "headers": {
+            "applied_at": "आवेदन तिथि",
+            "amount_requested": "अनुरोधित राशि (₹)",
+            "purpose": "उद्देश्य",
+            "status": "स्थिति",
+            "reviewed_by": "समीक्षक",
+            "reviewed_at": "समीक्षा तिथि",
+            "decision_notes": "निर्णय नोट्स"
+        },
+        "status_labels": {
+            "pending": "⏳ लंबित",
+            "approved": "✅ स्वीकृत",
+            "rejected": "❌ अस्वीकृत"
+        }
+    },
+    "ta": {
+        "apply_title": "நுண்கடன் விண்ணப்பம்",
+        "apply_subtitle": "உங்கள் மாற்று கிரெடிட் சுயவிவரத்தின் அடிப்படையில் பணப்புழக்க நிதி கோரவும்",
+        "current_score_label": "உங்களது தற்போதைய கிரெடிட் மதிப்பெண்:",
+        "amount_label": "கோரப்பட்ட தொகை (₹)",
+        "purpose_label": "கடனின் நோக்கம்",
+        "purposes": {
+            "Business Expansion": "வணிக விரிவாக்கம் (Business Expansion)",
+            "Personal / Household": "தனிப்பட்ட / குடும்பம் (Personal / Household)",
+            "Medical / Emergency": "மருத்துவ / அவசரநிலை (Medical / Emergency)",
+            "Other": "இதர (Other)"
+        },
+        "submit_btn": "கடன் விண்ணப்பத்தைச் சமர்ப்பிக்கவும்",
+        "success_msg": "கடன் விண்ணப்பம் வெற்றிகரமாகச் சமர்ப்பிக்கப்பட்டது! இது இப்போது மதிப்பாய்வில் உள்ளது.",
+        "history_title": "உங்கள் கடன் விண்ணப்பங்கள்",
+        "history_subtitle": "சமர்ப்பிக்கப்பட்ட விண்ணப்பங்களின் நிலை மற்றும் வரலாறு",
+        "no_apps": "நீங்கள் இன்னும் கடன் விண்ணப்பங்கள் எதையும் சமர்ப்பிக்கவில்லை.",
+        "headers": {
+            "applied_at": "விண்ணப்பித்த தேதி",
+            "amount_requested": "கோரப்பட்ட தொகை (₹)",
+            "purpose": "நோக்கம்",
+            "status": "நிலை",
+            "reviewed_by": "மதிப்பாய்வு செய்தவர்",
+            "reviewed_at": "மதிப்பாய்வு தேதி",
+            "decision_notes": "முடிவு குறிப்புகள்"
+        },
+        "status_labels": {
+            "pending": "⏳ நிலுவையில் உள்ளது",
+            "approved": "✅ அங்கீகரிக்கப்பட்டது",
+            "rejected": "❌ நிராகரிக்கப்பட்டது"
+        }
+    }
+}
+
+
+def render_loan_application_section(conn, user_id: str, language: str = "en"):
+    loc = LOAN_LOCALIZATION.get(language, LOAN_LOCALIZATION["en"])
+    
+    # 1. Fetch user's current score
+    credit_row = conn.execute(
+        "SELECT score FROM credit_scores WHERE user_id = ? ORDER BY computed_at DESC LIMIT 1",
+        (user_id,)
+    ).fetchone()
+    current_score = credit_row[0] if credit_row else 300
+    
+    open_section_card(loc["apply_title"], loc["apply_subtitle"])
+    
+    st.markdown(
+        f"""
+        <div style="background-color: #f0f7f4; border: 1px solid #c2e0d1; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #2e7d32; font-weight: 500; font-size: 0.95rem;">
+                📈 {loc['current_score_label']} <strong style="font-size: 1.15rem;">{current_score:.0f}</strong> (Range 300-900)
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    with st.form(key=f"loan_apply_form_{user_id}"):
+        amount = st.number_input(loc["amount_label"], min_value=1000.0, max_value=500000.0, step=5000.0, value=25000.0)
+        
+        purpose_options = list(loc["purposes"].keys())
+        selected_purpose_label = st.selectbox(loc["purpose_label"], purpose_options)
+        
+        submitted = st.form_submit_button(loc["submit_btn"], use_container_width=True)
+        if submitted:
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO loan_applications (user_id, amount_requested, purpose, status)
+                    VALUES (?, ?, ?, 'pending')
+                    """,
+                    (user_id, amount, selected_purpose_label)
+                )
+                conn.commit()
+                st.success(loc["success_msg"])
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error submitting application: {e}")
+                
+    st.markdown("---")
+    st.markdown(f"#### {loc['history_title']}")
+    
+    # Fetch user's applications
+    apps_df = pd.read_sql_query(
+        """
+        SELECT applied_at, amount_requested, purpose, status, reviewed_by, reviewed_at, decision_notes
+        FROM loan_applications
+        WHERE user_id = ?
+        ORDER BY applied_at DESC
+        """,
+        conn,
+        params=(user_id,)
+    )
+    
+    if apps_df.empty:
+        st.info(loc["no_apps"])
+    else:
+        # Localize status badges
+        apps_df["status"] = apps_df["status"].apply(lambda s: loc["status_labels"].get(s, s))
+        
+        # Rename columns to localized headers
+        renamed_df = apps_df.rename(columns=loc["headers"])
+        st.dataframe(
+            renamed_df,
+            hide_index=True,
+            use_container_width=True
+        )
+        
+    close_section_card()
+
+
+TXN_LOCALIZATION = {
+    "en": {
+        "title": "My Transactions",
+        "subtitle": "Recent credit and debit transaction logs",
+        "load_more": "Load More Transactions",
+        "headers": {
+            "timestamp": "Date & Time",
+            "amount": "Amount (₹)",
+            "direction": "Type",
+            "counterparty_name": "Counterparty Name",
+            "counterparty_vpa": "UPI ID / VPA",
+            "category": "Category"
+        },
+        "no_txns": "No transaction records found."
+    },
+    "hi": {
+        "title": "मेरे लेन-देने",
+        "subtitle": "हालिया क्रेडिट और डेबिट लेन-देन लॉग",
+        "load_more": "अधिक लेन-देन लोड करें",
+        "headers": {
+            "timestamp": "दिनांक और समय",
+            "amount": "राशि (₹)",
+            "direction": "प्रकार",
+            "counterparty_name": "प्राप्तकर्ता/भेजनेवाला",
+            "counterparty_vpa": "UPI आईडी / VPA",
+            "category": "श्रेणी"
+        },
+        "no_txns": "कोई लेन-देन रिकॉर्ड नहीं मिला।"
+    },
+    "ta": {
+        "title": "எனது பரிவர்த்தனைகள்",
+        "subtitle": "சமீபத்திய கிரெடிட் மற்றும் டெபிட் பரிவர்த்தனை பதிவுகள்",
+        "load_more": "கூடுதல் பரிவர்த்தனைகளை ஏற்றுக",
+        "headers": {
+            "timestamp": "தேதி & நேரம்",
+            "amount": "தொகை (₹)",
+            "direction": "வகை",
+            "counterparty_name": "பெறுநர் பெயர்",
+            "counterparty_vpa": "UPI ஐடி / VPA",
+            "category": "பிரிவு"
+        },
+        "no_txns": "பரிவர்த்தனை பதிவுகள் எதுவும் இல்லை."
+    }
+}
+
+
+def load_user_transactions(conn, user_id: str, limit: int) -> pd.DataFrame:
+    return pd.read_sql_query(
+        """
+        SELECT timestamp, amount, direction, counterparty_name, counterparty_vpa, category
+        FROM transactions
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+        """,
+        conn,
+        params=(user_id, limit)
+    )
+
+
+def render_user_transactions(conn, user_id: str, language: str = "en"):
+    loc = TXN_LOCALIZATION.get(language, TXN_LOCALIZATION["en"])
+    
+    if "txn_limit" not in st.session_state:
+        st.session_state.txn_limit = 50
+        
+    limit = st.session_state.txn_limit
+    df = load_user_transactions(conn, user_id, limit)
+    
+    open_section_card(loc["title"], loc["subtitle"])
+    if df.empty:
+        st.info(loc["no_txns"])
+    else:
+        # Style direction
+        df["direction"] = df["direction"].apply(lambda d: "🟢 Credit" if d == "credit" else "🔴 Debit")
+        
+        # Format Amount
+        df["amount"] = df["amount"].apply(lambda a: f"₹{a:,.2f}")
+        
+        st.dataframe(
+            df.rename(columns=loc["headers"]),
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # Check total count
+        total_count = conn.execute(
+            "SELECT COUNT(*) FROM transactions WHERE user_id = ?",
+            (user_id,)
+        ).fetchone()[0]
+        
+        if total_count > limit:
+            if st.button(loc["load_more"], use_container_width=True):
+                st.session_state.txn_limit += 50
+                st.rerun()
+                
+    close_section_card()
+
+
+def render_login_page(conn):
+    st.markdown('<div class="login-card-anchor"></div>', unsafe_allow_html=True)
+    
+    if "login_mode" not in st.session_state:
+        st.session_state.login_mode = "user"
+
+    st.markdown(
+        """
+        <div style="max-width: 480px; margin: 60px auto 10px auto; text-align: center;">
+            <div style="font-size: 3.25rem; font-weight: 700; color: #8C5A3C; margin-bottom: 2px; letter-spacing: -0.03em; font-family: 'Plus Jakarta Sans', sans-serif;">PayLens</div>
+            <p style="color: #8C8273; font-size: 0.95rem; margin-bottom: 30px; letter-spacing: 0.05em; font-weight: 500;">Fintech Operator Platform</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Pill Tab switcher container
+    st.markdown('<div class="tab-container">', unsafe_allow_html=True)
+    col_tab1, col_tab2 = st.columns(2)
+    with col_tab1:
+        if st.button("User", use_container_width=True, type="primary" if st.session_state.login_mode == "user" else "secondary", key="btn_login_tab_user"):
+            st.session_state.login_mode = "user"
+            st.rerun()
+    with col_tab2:
+        if st.button("Banker", use_container_width=True, type="primary" if st.session_state.login_mode == "banker" else "secondary", key="btn_login_tab_banker"):
+            st.session_state.login_mode = "banker"
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    is_client = st.session_state.login_mode == "user"
+    
+    with st.form("login_form"):
+        username = st.text_input("Operator ID" if is_client else "Banker ID", placeholder="Enter your ID")
+        password = st.text_input("Passcode", type="password", placeholder="••••••••")
+        
+        col_rem, col_rec = st.columns(2)
+        with col_rem:
+            remember_device = st.checkbox("Remember device", value=False)
+        with col_rec:
+            st.markdown(
+                '<p style="text-align: right; margin-top: 6px; margin-bottom: 0px;">'
+                '<a href="#" style="color: #8C5A3C; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Recovery</a>'
+                '</p>',
+                unsafe_allow_html=True
+            )
+            
+        submitted = st.form_submit_button("Authenticate Session \u2192", use_container_width=True)
+        if submitted:
+            if not username or not password:
+                st.error("Please enter both ID and passcode.")
+            else:
+                res = login_user(conn, username, password)
+                if res:
+                    user_id, role = res
+                    if is_client and role != "user":
+                        st.error("This account belongs to a Banker. Please authenticate through the Banker Portal.")
+                    elif not is_client and role != "banker":
+                        st.error("This account belongs to a Client. Please authenticate through the User Portal.")
+                    else:
+                        st.session_state.logged_in = True
+                        st.session_state.user_id = user_id
+                        st.session_state.role = role
+                        st.session_state.chat_user_id = user_id
+                        st.session_state.messages = []
+                        st.success("Authenticated successfully!")
+                        st.rerun()
+                else:
+                    st.error("Invalid credentials.")
+
+    st.markdown(
+        '<p style="text-align: center; color: #8C8273; font-size: 0.85rem; margin-top: 40px; font-weight: 500;">'
+        '<span style="margin-right: 8px; vertical-align: middle;">🛡️</span>End-to-End Encrypted Connection'
+        '</p>',
+        unsafe_allow_html=True
+    )
+
+
+
+def calculate_income_stats(conn, user_id: str) -> dict:
+    df = pd.read_sql_query(
+        """
+        SELECT timestamp, amount
+        FROM transactions
+        WHERE user_id = ? AND direction = 'credit'
+        """,
+        conn,
+        params=(user_id,)
+    )
+    if df.empty:
+        return {"avg": 0.0, "min": 0.0, "max": 0.0, "monthly_sums": pd.Series(dtype=float)}
+
+    # Convert timestamp to YYYY-MM
+    df["month"] = df["timestamp"].str.slice(0, 7)
+    monthly_sums = df.groupby("month")["amount"].sum()
+
+    return {
+        "avg": monthly_sums.mean(),
+        "min": monthly_sums.min(),
+        "max": monthly_sums.max(),
+        "monthly_sums": monthly_sums
+    }
+
+
+def render_banker_dashboard(conn):
+    st.markdown(
+        """
+        <div style="background-color: #ffebe9; border: 1px solid #ffc1c0; padding: 18px; border-radius: 12px; margin-bottom: 24px;">
+            <h4 style="color: #cf222e; margin: 0 0 8px 0; font-weight: 700; letter-spacing: -0.01em;">🔒 CONFIDENTIAL — BANKER PORTAL</h4>
+            <p style="color: #24292f; margin: 0; font-size: 0.95rem; line-height: 1.5;">
+                Authorized risk audit view. Review applicant details and log credit decisions.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 1. Pending Queue
+    open_section_card("Pending Loan Applications Queue", "Review cash-flow based loan requests from applicants")
+
+    pending_apps = pd.read_sql_query(
+        """
+        SELECT la.application_id, u.name, la.user_id, la.amount_requested, la.purpose, la.applied_at
+        FROM loan_applications la
+        JOIN users u ON la.user_id = u.user_id
+        WHERE la.status = 'pending'
+        ORDER BY la.applied_at ASC
+        """,
+        conn
+    )
+
+    auditing_app_id = None
+    selected_user_id = None
+
+    if pending_apps.empty:
+        st.success("🎉 No pending loan applications to review.")
+        close_section_card()
+    else:
+        st.dataframe(
+            pending_apps.rename(columns={
+                "name": "Applicant Name",
+                "user_id": "User ID",
+                "amount_requested": "Amount Requested (₹)",
+                "purpose": "Purpose",
+                "applied_at": "Applied Date"
+            }).drop(columns=["application_id"]),
+            hide_index=True,
+            use_container_width=True
+        )
+
+        app_labels = {
+            f"{row['name']} ({row['user_id']}) - ₹{row['amount_requested']:,.0f} ({row['purpose']})": (row['application_id'], row['user_id'])
+            for _, row in pending_apps.iterrows()
+        }
+        selected_app_label = st.selectbox("Select Pending Application to Audit", list(app_labels.keys()), key="pending_app_select")
+        auditing_app_id, selected_user_id = app_labels[selected_app_label]
+        reset_chat_if_user_changed(selected_user_id)
+        close_section_card()
+
+    # If an application is selected, render their full auditing profile
+    if selected_user_id:
+        lang_options = {"English": "en", "Hindi": "hi", "Tamil": "ta"}
+        selected_lang_name = st.selectbox("Select language for audit view", list(lang_options.keys()), key="banker_audit_lang")
+        selected_lang = lang_options[selected_lang_name]
+
+        selected_user = conn.execute("SELECT name, monthly_income_estimate FROM users WHERE user_id = ?", (selected_user_id,)).fetchone()
+        if selected_user:
+            st.markdown(
+                f'<p class="user-meta"><strong>Auditing Applicant: {selected_user[0]}</strong> · '
+                f'Declared income ₹{selected_user[1]:,.0f}/mo</p>',
+                unsafe_allow_html=True,
+            )
+
+        fraud_df = load_fraud_flags(conn, selected_user_id)
+        subs_df = load_subscriptions(conn, selected_user_id)
+        credit = load_credit_score(conn, selected_user_id)
+
+        col_feed, col_score = st.columns([2, 1])
+        with col_feed:
+            render_financial_events(fraud_df, subs_df, conn, selected_user_id, language=selected_lang)
+        with col_score:
+            render_credit_score(credit, language=selected_lang)
+
+        # Inflow & Gig-Work Volatility
+        stats = calculate_income_stats(conn, selected_user_id)
+        with col_feed:
+            open_section_card("Inflow & Gig-Work Volatility", "Monthly credit analysis and income range")
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                st.metric("Average Monthly Inflow", f"₹{stats['avg']:,.2f}")
+            with col_m2:
+                st.metric("Minimum Monthly Inflow", f"₹{stats['min']:,.2f}")
+            with col_m3:
+                st.metric("Maximum Monthly Inflow", f"₹{stats['max']:,.2f}")
+
+            st.markdown(f"**Monthly Volatility Range**: ₹{stats['min']:,.2f} to ₹{stats['max']:,.2f}")
+
+            if not stats["monthly_sums"].empty:
+                st.markdown("<p style='font-weight: 500; margin-top: 15px;'>Monthly Inflow Breakdown</p>", unsafe_allow_html=True)
+                m_df = pd.DataFrame({
+                    "Month": stats["monthly_sums"].index,
+                    "Inflow (₹)": stats["monthly_sums"].values
+                })
+                st.dataframe(
+                    m_df.style.format({"Inflow (₹)": "₹{:,.2f}"}),
+                    hide_index=True,
+                    use_container_width=True
+                )
+            close_section_card()
+
+        # Recent Transactions (Last 20)
+        txns_df = pd.read_sql_query(
+            """
+            SELECT timestamp, amount, direction, counterparty_name, counterparty_vpa, category
+            FROM transactions
+            WHERE user_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 20
+            """,
+            conn,
+            params=(selected_user_id,)
+        )
+        with col_feed:
+            open_section_card("Recent Transactions (Last 20)", "Applicant's recent UPI credit/debit transactions")
+            if txns_df.empty:
+                st.info("No transaction history found for this applicant.")
+            else:
+                st.dataframe(
+                    txns_df.rename(columns={
+                        "timestamp": "Timestamp",
+                        "amount": "Amount (₹)",
+                        "direction": "Direction",
+                        "counterparty_name": "Counterparty Name",
+                        "counterparty_vpa": "VPA",
+                        "category": "Category"
+                    }),
+                    hide_index=True,
+                    use_container_width=True
+                )
+            close_section_card()
+
+        # Institutional Risk Auditing Metrics
+        open_section_card("Risk Assessment Details", "Anomalies, trends, and systemic exposure")
+
+        # Spending Trend
+        trend_row = conn.execute(
+            "SELECT income_trend_pct, spending_trend_pct, is_flagged FROM spending_trends WHERE user_id = ?",
+            (selected_user_id,)
+        ).fetchone()
+
+        # Circular Transactions
+        circular_flags = conn.execute(
+            """
+            SELECT counterparty_vpa, counterparty_name, debit_timestamp, debit_amount,
+                   credit_timestamp, credit_amount, detected_at
+            FROM income_authenticity_flags
+            WHERE user_id = ?
+            """,
+            (selected_user_id,)
+        ).fetchall()
+
+        # Shared Risky counterparties
+        shared_risk_flags = conn.execute(
+            """
+            SELECT DISTINCT t.counterparty_vpa, t.counterparty_name, src.unique_user_count, src.total_flag_count
+            FROM transactions t
+            JOIN shared_risk_counterparties src ON t.counterparty_vpa = src.counterparty_vpa
+            WHERE t.user_id = ?
+            """,
+            (selected_user_id,)
+        ).fetchall()
+
+        audit_col1, audit_col2 = st.columns(2)
+        with audit_col1:
+            st.markdown("**Circular Transactions & Income Authenticity:**")
+            if not circular_flags:
+                st.success("✅ No circular transaction loops or self-funding patterns detected.")
+            else:
+                st.warning(f"⚠️ {len(circular_flags)} potential self-funding circular loops detected.")
+                for row in circular_flags:
+                    st.info(
+                        f"**VPA**: `{row[0]}` ({row[1]})\n"
+                        f"- Debit: ₹{row[3]:,.2f} on {row[2]}\n"
+                        f"- Credit: ₹{row[5]:,.2f} on {row[4]}"
+                    )
+        with audit_col2:
+            st.markdown("**Spending vs Income Trend (MoM):**")
+            if trend_row:
+                inc_trend, spd_trend, is_flagged = trend_row[0], trend_row[1], bool(trend_row[2])
+                st.metric("Income Trend (MoM)", f"{'+' if inc_trend >= 0 else ''}{inc_trend:.1f}%")
+                st.metric("Spending Trend (MoM)", f"{'+' if spd_trend >= 0 else ''}{spd_trend:.1f}%")
+                if is_flagged:
+                    st.error("🚨 Unsustainable Spending: Spending growth exceeds income growth rate.")
+                else:
+                    st.success("✅ Spending growth trend is sustainable relative to income.")
+            else:
+                st.info("No spending trend data available for this profile.")
+
+        if shared_risk_flags:
+            st.markdown("---")
+            st.markdown("**Shared Risky Counterparties:**")
+            st.error("🚨 Transactions found with counterparties flagged as risky across 3+ other users.")
+            df_shared = pd.DataFrame([
+                {"Risky VPA": r[0], "Name": r[1], "Flagged Users Count": r[2], "Total Fraud Flags": r[3]}
+                for r in shared_risk_flags
+            ])
+            st.dataframe(df_shared, hide_index=True, use_container_width=True)
+
+        close_section_card()
+
+        # Active Complaints review
+        complaints_df = load_complaints(conn, selected_user_id)
+        if not complaints_df.empty:
+            render_my_complaints(complaints_df, language=selected_lang)
+
+        # Decision Panel
+        if auditing_app_id is not None:
+            open_section_card("Loan Decision Panel", "Approve or Reject the loan application based on applicant credit profile")
+
+            app_info = pending_apps[pending_apps["application_id"] == auditing_app_id].iloc[0]
+            st.markdown(
+                f"""
+                **Reviewing Loan Request:**
+                - **Applicant:** {app_info['name']} (`{app_info['user_id']}`)
+                - **Requested Amount:** ₹{app_info['amount_requested']:,.2f}
+                - **Purpose:** {app_info['purpose']}
+                - **Applied At:** {app_info['applied_at']}
+                """
+            )
+
+            decision_notes = st.text_area("Decision Notes / Rationale", placeholder="Explain the rationale for approval or rejection...", key="banker_decision_notes")
+
+            col_app, col_rej = st.columns(2)
+            with col_app:
+                if st.button("Approve Loan", use_container_width=True, type="primary", key="btn_approve"):
+                    try:
+                        conn.execute(
+                            """
+                            UPDATE loan_applications
+                            SET status = 'approved',
+                                reviewed_by = ?,
+                                reviewed_at = datetime('now'),
+                                decision_notes = ?
+                            WHERE application_id = ?
+                            """,
+                            (st.session_state.user_id, decision_notes, auditing_app_id)
+                        )
+                        conn.commit()
+                        st.success("Loan application APPROVED successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error approving loan: {e}")
+
+            with col_rej:
+                if st.button("Reject Loan", use_container_width=True, key="btn_reject"):
+                    try:
+                        conn.execute(
+                            """
+                            UPDATE loan_applications
+                            SET status = 'rejected',
+                                reviewed_by = ?,
+                                reviewed_at = datetime('now'),
+                                decision_notes = ?
+                            WHERE application_id = ?
+                            """,
+                            (st.session_state.user_id, decision_notes, auditing_app_id)
+                        )
+                        conn.commit()
+                        st.warning("Loan application REJECTED successfully.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error rejecting loan: {e}")
+
+            close_section_card()
+
+        # Interactive Banker Audit Chatbot
+        st.markdown("### Interactive Risk Inquiry")
+        render_chat(conn, selected_user_id, language=selected_lang)
+
+    # 2. Historical applications review log (always show at the bottom)
+    history_apps = pd.read_sql_query(
+        """
+        SELECT u.name, la.amount_requested, la.purpose, la.applied_at, la.status, la.reviewed_by, la.reviewed_at, la.decision_notes
+        FROM loan_applications la
+        JOIN users u ON la.user_id = u.user_id
+        WHERE la.status != 'pending'
+        ORDER BY la.reviewed_at DESC
+        """,
+        conn
+    )
+    if not history_apps.empty:
+        open_section_card("Reviewed Loan Applications History", "Transparent log of approved and rejected loan requests")
+        st.dataframe(
+            history_apps.rename(columns={
+                "name": "Applicant Name",
+                "amount_requested": "Amount (₹)",
+                "purpose": "Purpose",
+                "applied_at": "Applied Date",
+                "status": "Decision",
+                "reviewed_by": "Reviewed By",
+                "reviewed_at": "Reviewed Date",
+                "decision_notes": "Notes / Rationale"
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
+        close_section_card()
+
+
 def main():
     st.set_page_config(
         page_title="PayLens",
@@ -1234,67 +2106,140 @@ def main():
     init_session_state()
     conn = get_connection()
 
+    # 1. Require login first
+    if not st.session_state.logged_in:
+        render_login_page(conn)
+        st.stop()
+
+    # 2. Render Logged-in Navigation / Header bar
+    col_user, col_logout = st.columns([4, 1])
+    with col_user:
+        role_label = "Banker" if st.session_state.role == "banker" else "Client User"
+        st.markdown(f"👤 **Logged in as:** `{st.session_state.user_id}` ({role_label})")
+    with col_logout:
+        if st.button("Logout", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.user_id = None
+            st.session_state.role = None
+            st.session_state.messages = []
+            st.session_state.chat_user_id = None
+            st.rerun()
+
     users = load_users(conn)
     if not users:
         st.error("No users found. Run `python main.py` first to generate the database.")
         return
 
-    open_section_card("Account", "Select user and language")
-    col1, col2 = st.columns(2)
-    with col1:
-        user_labels = {f"{u['name']} ({u['user_id']})": u["user_id"] for u in users}
-        selected_label = st.selectbox("Select user", list(user_labels.keys()))
-        user_id = user_labels[selected_label]
+    # 3. Route based on role
+    if st.session_state.role == "banker":
+        render_banker_dashboard(conn)
+    else:
+        # Client user dashboard (scoped to logged-in user_id only)
+        user_id = st.session_state.user_id
         reset_chat_if_user_changed(user_id)
-    with col2:
+
+        # Navigation menu in sidebar
+        st.sidebar.markdown(
+            """
+            <div style="padding: 10px 0 20px 0; text-align: center;">
+                <h3 style="color: #2B2B2B; margin: 0; font-weight: 700; letter-spacing: -0.02em;">PayLens</h3>
+                <p style="color: #8A8378; margin: 2px 0 0 0; font-size: 0.825rem;">Alternate Credit Engine</p>
+                <div style="width: 48px; height: 3px; background: #E8A87C; margin: 10px auto 0 auto; border-radius: 999px;"></div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        NAV_LOCALIZATION = {
+            "en": {
+                "Home": "🏠 Home",
+                "Transactions": "💳 Transactions",
+                "Loans": "💰 Loans",
+                "Chat": "💬 Chat Assistant"
+            },
+            "hi": {
+                "Home": "🏠 होम (Home)",
+                "Transactions": "💳 लेन-देन (Transactions)",
+                "Loans": "💰 ऋण (Loans)",
+                "Chat": "💬 चैट सहायक (Chat)"
+            },
+            "ta": {
+                "Home": "🏠 முகப்பு (Home)",
+                "Transactions": "💳 பரிவர்த்தனைகள் (Transactions)",
+                "Loans": "💰 கடன்கள் (Loans)",
+                "Chat": "💬 அரட்டை உதவியாளர் (Chat)"
+            }
+        }
+
+        # Language selection in sidebar
         lang_options = {"English": "en", "Hindi": "hi", "Tamil": "ta"}
-        selected_lang_name = st.selectbox("Select language", list(lang_options.keys()))
+        selected_lang_name = st.sidebar.selectbox("Language / भाषा / மொழி", list(lang_options.keys()))
         selected_lang = lang_options.get(selected_lang_name, "en")
 
-    selected_user = next(u for u in users if u["user_id"] == user_id)
-    st.markdown(
-        f'<p class="user-meta"><strong>{selected_user["name"]}</strong> · '
-        f'Estimated income ₹{selected_user["monthly_income_estimate"]:,.0f}/mo</p>',
-        unsafe_allow_html=True,
-    )
-    close_section_card()
+        loc_nav = NAV_LOCALIZATION.get(selected_lang, NAV_LOCALIZATION["en"])
 
-    fraud_df = load_fraud_flags(conn, user_id)
-    subs_df = load_subscriptions(conn, user_id)
-    credit = load_credit_score(conn, user_id)
+        active_tab = st.sidebar.radio(
+            "Navigation",
+            options=list(loc_nav.keys()),
+            format_func=lambda x: loc_nav[x],
+            label_visibility="collapsed"
+        )
 
-    col_feed, col_score = st.columns([2, 1])
-    with col_feed:
-        render_financial_events(fraud_df, subs_df, conn, user_id, language=selected_lang)
-    with col_score:
-        render_credit_score(credit)
+        selected_user = next(u for u in users if u["user_id"] == user_id)
+        
+        st.markdown(
+            f'<div style="background-color: #FFFFFF; border: 1px solid #E5DDD2; padding: 20px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">'
+            f'<h2 style="margin: 0; font-weight: 700; color: #2B2B2B; letter-spacing: -0.02em;">Welcome, {selected_user["name"]}</h2>'
+            f'<p style="color: #8A8378; margin: 6px 0 0 0; font-size: 0.95rem;">Estimated income: <strong>₹{selected_user["monthly_income_estimate"]:,.0f}/mo</strong> · ID: <code>{user_id}</code></p>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-    if not fraud_df.empty:
-        with st.expander("Fraud flags table"):
-            display_cols = [
-                "risk_score",
-                "txn_timestamp",
-                "amount",
-                "direction",
-                "counterparty_name",
-                "counterparty_vpa",
-                "category",
-                "reasons_plain",
-            ]
-            st.dataframe(
-                fraud_df[display_cols].rename(columns={"reasons_plain": "reasons"}),
-                use_container_width=True,
-                hide_index=True,
-            )
+        fraud_df = load_fraud_flags(conn, user_id)
+        subs_df = load_subscriptions(conn, user_id)
+        credit = load_credit_score(conn, user_id)
 
-    if not subs_df.empty:
-        with st.expander("Subscriptions table"):
-            st.dataframe(subs_df, use_container_width=True, hide_index=True)
+        # Tab Routing
+        if active_tab == "Home":
+            col_feed, col_score = st.columns([2, 1])
+            with col_feed:
+                render_financial_events(fraud_df, subs_df, conn, user_id, language=selected_lang)
+            with col_score:
+                render_credit_score(credit, language=selected_lang)
 
-    complaints_df = load_complaints(conn, user_id)
-    render_my_complaints(complaints_df, language=selected_lang)
+            if not fraud_df.empty:
+                with st.expander("Fraud flags table"):
+                    display_cols = [
+                        "risk_score",
+                        "txn_timestamp",
+                        "amount",
+                        "direction",
+                        "counterparty_name",
+                        "counterparty_vpa",
+                        "category",
+                        "reasons_plain",
+                    ]
+                    st.dataframe(
+                        fraud_df[display_cols].rename(columns={"reasons_plain": "reasons"}),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
 
-    render_chat(conn, user_id, language=selected_lang)
+            if not subs_df.empty:
+                with st.expander("Subscriptions table"):
+                    st.dataframe(subs_df, use_container_width=True, hide_index=True)
+
+            complaints_df = load_complaints(conn, user_id)
+            render_my_complaints(complaints_df, language=selected_lang)
+
+        elif active_tab == "Transactions":
+            render_user_transactions(conn, user_id, language=selected_lang)
+
+        elif active_tab == "Loans":
+            render_loan_application_section(conn, user_id, language=selected_lang)
+
+        elif active_tab == "Chat":
+            render_chat(conn, user_id, language=selected_lang)
 
 
 if __name__ == "__main__":

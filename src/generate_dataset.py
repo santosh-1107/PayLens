@@ -26,6 +26,7 @@ import sqlite3
 import random
 import uuid
 import os
+import hashlib
 from datetime import datetime, timedelta
 from faker import Faker
 
@@ -35,7 +36,7 @@ random.seed(42)  # reproducible dataset across demo runs
 DB_PATH = "../data/upi_transactions.db"
 SCHEMA_PATH = "schema.sql"
 
-NUM_USERS = 40
+NUM_USERS = 100
 SIMULATION_DAYS = 180  # 6 months of history — enough for subscription intervals to repeat 4-6 times
 
 # Known "subscription-style" merchants — recurring, fixed-ish amount
@@ -67,6 +68,7 @@ def create_schema(conn):
 
 def create_users(conn):
     users = []
+    demo_pwd_hash = hashlib.sha256(b"demo123").hexdigest()
     for i in range(NUM_USERS):
         user_id = f"user_{i+1:03d}"
         name = fake.name()
@@ -74,11 +76,21 @@ def create_users(conn):
         income_estimate = random.choice(
             [12000, 15000, 18000, 22000, 28000, 35000, 45000, 55000, 70000, 90000]
         )
-        users.append((user_id, name, income_estimate))
+        users.append((user_id, name, income_estimate, demo_pwd_hash, "user"))
+
+    bankers = [
+        ("banker_001", "Banker Rajesh", None, demo_pwd_hash, "banker"),
+        ("banker_002", "Banker Sunita", None, demo_pwd_hash, "banker"),
+        ("banker_003", "Banker Amit", None, demo_pwd_hash, "banker"),
+        ("banker_004", "Banker Priya", None, demo_pwd_hash, "banker"),
+        ("banker_005", "Banker Vikram", None, demo_pwd_hash, "banker"),
+    ]
 
     conn.executemany(
-        "INSERT INTO users (user_id, name, monthly_income_estimate) VALUES (?, ?, ?)",
-        users,
+        """INSERT INTO users 
+           (user_id, name, monthly_income_estimate, password, role) 
+           VALUES (?, ?, ?, ?, ?)""",
+        users + bankers,
     )
     conn.commit()
     return [u[0] for u in users]
@@ -322,7 +334,7 @@ def main():
             cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = [r[0] for r in cur.fetchall() if r[0] != 'sqlite_sequence']
             for table in tables:
-                cur.execute(f"DELETE FROM {table};")
+                cur.execute(f"DROP TABLE IF EXISTS {table};")
             cur.execute("PRAGMA foreign_keys = ON;")
             conn.commit()
             conn.close()

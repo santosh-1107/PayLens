@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     monthly_income_estimate REAL,     -- ground-truth label, used only to validate credit score logic
+    password TEXT,                    -- demo-grade hashed password
+    role TEXT DEFAULT 'user',         -- role of user ('user' or 'banker')
     created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -131,6 +133,21 @@ CREATE TABLE IF NOT EXISTS spending_trends (
     is_flagged INTEGER NOT NULL,
     computed_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- Loan applications output table (workflow)
+CREATE TABLE IF NOT EXISTS loan_applications (
+    application_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    amount_requested REAL NOT NULL,
+    purpose TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    applied_at TEXT DEFAULT (datetime('now')),
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    decision_notes TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (reviewed_by) REFERENCES users(user_id)
 );
 
 
