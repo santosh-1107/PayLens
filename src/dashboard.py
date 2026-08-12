@@ -17,7 +17,7 @@ import streamlit as st
 from chat_layer import explain
 from auth import login_user
 
-DB_PATH = "../data/upi_transactions.db"
+DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "upi_transactions.db")
 
 REASON_LABELS = {
     "amount_spike": "Unusual amount spike vs. your typical spending",
@@ -29,15 +29,15 @@ REASON_LABELS = {
 # --- Visual theme (CSS / layout only) ---
 
 COLORS = {
-    "bg": "#F7F1E8",
-    "card": "#FFFFFF",
-    "primary": "#E8A87C",
-    "secondary": "#D98E5F",
-    "text": "#2B2B2B",
-    "muted": "#8A8378",
-    "success": "#9CBFA0",
-    "warning": "#E0B15C",
-    "error": "#E08578",
+    "bg": "#FBF7F0",
+    "card": "#FFFDF9",
+    "primary": "#934F22",
+    "secondary": "#7E3F18",
+    "text": "#3D2A20",
+    "muted": "#806F62",
+    "success": "#4A7C59",
+    "warning": "#C29338",
+    "error": "#B33939",
 }
 
 
@@ -54,7 +54,8 @@ def inject_custom_css():
             --paylens-primary: {c["primary"]};
             --paylens-text: {c["text"]};
             --paylens-muted: {c["muted"]};
-            --paylens-border: #E5DDD2;
+            --paylens-border: #E9DED0;
+            --paylens-input: #FCF8F2;
         }}
 
         html, body, [class*="css"] {{
@@ -89,7 +90,7 @@ def inject_custom_css():
             padding-bottom: 3rem;
             padding-left: 2rem;
             padding-right: 2rem;
-            max-width: 1120px;
+            max-width: 1200px;
             margin-left: auto !important;
             margin-right: auto !important;
         }}
@@ -111,8 +112,8 @@ def inject_custom_css():
         .section-card,
         [data-testid="stVerticalBlockBorderWrapper"] {{
             background: {c["card"]} !important;
-            border-radius: 18px !important;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+            border-radius: 14px !important;
+            box-shadow: 0 4px 20px rgba(61, 42, 32, 0.02) !important;
             border: 1px solid var(--paylens-border) !important;
             padding: 24px !important;
             margin-bottom: 24px !important;
@@ -175,10 +176,10 @@ def inject_custom_css():
 
         .stSelectbox div[data-baseweb="select"] > div,
         .stSelectbox div[data-baseweb="select"] > div:focus-within {{
-            background-color: {c["card"]} !important;
+            background-color: #FCF8F2 !important;
             color: {c["text"]} !important;
             border: 1px solid var(--paylens-border) !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             box-shadow: none !important;
         }}
 
@@ -192,7 +193,7 @@ def inject_custom_css():
         div[data-baseweb="popover"] > div {{
             background-color: {c["card"]} !important;
             border: 1px solid var(--paylens-border) !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
         }}
 
         div[data-baseweb="popover"] ul {{
@@ -224,7 +225,7 @@ def inject_custom_css():
         [data-testid="stChatInput"] > div {{
             background-color: {c["card"]} !important;
             border: 1.5px solid {c["primary"]} !important;
-            border-radius: 14px !important;
+            border-radius: 12px !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
         }}
 
@@ -321,14 +322,14 @@ def inject_custom_css():
 
         .progress-track {{
             height: 10px;
-            background: #EDE6DC;
+            background: #E9DED0;
             border-radius: 999px;
             overflow: hidden;
         }}
 
         .progress-fill {{
             height: 100%;
-            background: {c["secondary"]};
+            background: {c["primary"]};
             border-radius: 999px;
             transition: width 0.3s ease;
         }}
@@ -337,11 +338,11 @@ def inject_custom_css():
             background-color: {c["primary"]} !important;
             color: #FFFFFF !important;
             border: none !important;
-            border-radius: 999px !important;
+            border-radius: 10px !important;
             padding: 0.55rem 1.25rem !important;
-            font-weight: 500 !important;
+            font-weight: 600 !important;
             box-shadow: none !important;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
         }}
 
         .stButton > button:hover {{
@@ -351,7 +352,26 @@ def inject_custom_css():
         }}
 
         .stButton > button:focus {{
-            box-shadow: 0 0 0 2px rgba(232, 168, 124, 0.35) !important;
+            box-shadow: 0 0 0 2px rgba(147, 79, 34, 0.25) !important;
+        }}
+
+        .stButton > button[kind="secondary"] {{
+            background-color: #FFFDF9 !important;
+            color: #806F62 !important;
+            border: 1px solid #E9DED0 !important;
+            border-radius: 10px !important;
+            font-weight: 500 !important;
+            transition: all 0.2s ease !important;
+        }}
+
+        .stButton > button[kind="secondary"]:hover {{
+            background-color: #FCF8F2 !important;
+            color: #3D2A20 !important;
+            border-color: #806F62 !important;
+        }}
+
+        .stButton > button[kind="secondary"]:focus {{
+            box-shadow: 0 0 0 2px rgba(128, 111, 98, 0.15) !important;
         }}
 
         [data-testid="stMetric"] {{
@@ -367,17 +387,17 @@ def inject_custom_css():
         }}
 
         .stProgress > div > div {{
-            background-color: {c["secondary"]} !important;
+            background-color: {c["primary"]} !important;
             border-radius: 999px !important;
         }}
 
         .stProgress > div {{
-            background-color: #EDE6DC !important;
+            background-color: #E9DED0 !important;
             border-radius: 999px !important;
         }}
 
         [data-testid="stChatMessage"] {{
-            background: #FAFAF8 !important;
+            background: #FFFDF9 !important;
             border-radius: 14px !important;
             border: 1px solid var(--paylens-border) !important;
             color: {c["text"]} !important;
@@ -390,9 +410,9 @@ def inject_custom_css():
 
         [data-testid="stExpander"] {{
             background: {c["card"]} !important;
-            border-radius: 18px !important;
+            border-radius: 14px !important;
             border: 1px solid var(--paylens-border) !important;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+            box-shadow: 0 4px 20px rgba(61, 42, 32, 0.02) !important;
             margin-bottom: 24px !important;
         }}
 
@@ -403,13 +423,98 @@ def inject_custom_css():
         .stAlert {{
             background-color: {c["card"]} !important;
             color: {c["text"]} !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             border: 1px solid var(--paylens-border) !important;
         }}
 
-        hr {{
-            border-color: var(--paylens-border) !important;
-            margin: 28px 0 !important;
+        /* Search bar & Page Heading overrides */
+        .global-search-marker {{
+            display: none;
+        }}
+
+        div:has(> .global-search-marker) + div [data-testid="stTextInput"] input {{
+            background-color: #FCF8F2 !important;
+            border: 1px solid #E9DED0 !important;
+            border-radius: 8px !important;
+            color: #33241B !important;
+            padding: 8px 12px 8px 36px !important;
+            height: 38px !important;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="%23806F62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>') !important;
+            background-repeat: no-repeat !important;
+            background-position: 12px center !important;
+            font-size: 0.85rem !important;
+        }}
+
+        div:has(> .global-search-marker) + div [data-testid="stTextInput"] input:focus {{
+            border-color: #934F22 !important;
+            box-shadow: 0 0 0 2px rgba(147, 79, 34, 0.08) !important;
+        }}
+
+        .page-heading {{
+            margin-bottom: 28px;
+            margin-top: 10px;
+        }}
+        .page-title {{
+            font-size: 1.75rem !important;
+            font-weight: 600 !important;
+            color: #33241B !important;
+            margin: 0 !important;
+            letter-spacing: -0.02em;
+        }}
+        .page-description {{
+            font-size: 0.85rem !important;
+            color: #806F62 !important;
+            margin: 4px 0 0 0 !important;
+        }}
+
+        /* Hover animation on cards */
+        [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+            box-shadow: 0 6px 24px rgba(147, 79, 34, 0.03) !important;
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+        }}
+
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] {{
+            background-color: #FFFDF9 !important;
+            border-right: 1px solid #E9DED0 !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label {{
+            display: flex !important;
+            align-items: center !important;
+            padding: 10px 16px !important;
+            border-radius: 10px !important;
+            margin-bottom: 4px !important;
+            border: 1px solid transparent !important;
+            background-color: transparent !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:hover {{
+            background-color: #FCF8F2 !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {{
+            background-color: #FCF8F2 !important;
+            border-color: #E9DED0 !important;
+            box-shadow: 0 2px 6px rgba(147, 79, 34, 0.04) !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p {{
+            color: #934F22 !important;
+            font-weight: 600 !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label > div:first-child {{
+            display: none !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div {{
+            background-color: #FCF8F2 !important;
+            border: 1px solid #E9DED0 !important;
+            border-radius: 10px !important;
         }}
 
         /* Login Page custom styling */
@@ -417,55 +522,105 @@ def inject_custom_css():
             display: none;
         }}
         
-        .stApp:has(.login-card-anchor) [data-testid="stForm"] {{
-            background-color: #FFFFFF !important;
-            border-radius: 20px !important;
-            box-shadow: 0 10px 45px rgba(140, 90, 60, 0.04) !important;
-            border: 1px solid #E5DDD2 !important;
+        .stApp:has(.login-card-anchor) .page-header {{
+            display: none !important;
+        }}
+        
+        /* Set page background to warm cream */
+        .stApp:has(.login-card-anchor),
+        .stApp:has(.login-card-anchor) [data-testid="stAppViewContainer"] {{
+            background-color: {c["bg"]} !important;
+        }}
+        
+        /* Make outer block transparent on login page (target ones without login-card-marker) */
+        .stApp:has(.login-card-anchor) [data-testid="stVerticalBlockBorderWrapper"]:not(:has(.login-card-marker)) {{
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }}
+        
+        /* Style the login container card */
+        .stApp:has(.login-card-anchor) [data-testid="stVerticalBlockBorderWrapper"]:has(.login-card-marker) {{
+            background-color: {c["card"]} !important;
+            border-radius: 16px !important;
+            box-shadow: 0 4px 24px rgba(61, 42, 32, 0.04) !important;
+            border: 1px solid var(--paylens-border) !important;
             padding: 40px !important;
             max-width: 480px !important;
             margin: 0 auto !important;
         }}
         
+        /* Make st.form transparent inside the card */
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] {{
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+        }}
+        
+        .login-card-marker {{
+            display: none;
+        }}
+        
+        /* Style input elements inside login form */
         .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input {{
-            background-color: #FAF6F0 !important;
-            border: 1px solid #E5DDD2 !important;
-            border-radius: 12px !important;
-            color: #2B2B2B !important;
+            background-color: #FCF8F2 !important;
+            border: 1px solid #E9DED0 !important;
+            border-radius: 10px !important;
+            color: #3D2A20 !important;
             padding: 12px 16px 12px 42px !important;
             height: 48px !important;
+            font-size: 0.95rem !important;
         }}
         
         .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"] input:focus {{
-            border-color: #8C5A3C !important;
-            box-shadow: 0 0 0 2px rgba(140, 90, 60, 0.1) !important;
+            border-color: #934F22 !important;
+            box-shadow: 0 0 0 2px rgba(147, 79, 34, 0.1) !important;
         }}
         
-        /* Operator ID input icon */
-        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:first-of-type input {{
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm1 9h10v1H3zm0-2h10v1H3zm0-2h4v1H3z"/></svg>') !important;
+        .stApp:has(.login-card-anchor) [data-testid="stForm"] label {{
+            color: #806F62 !important;
+            font-weight: 600 !important;
+            font-size: 0.9rem !important;
+            margin-bottom: 6px !important;
+        }}
+        
+        /* Username marker styles */
+        div:has(> .username-input-marker) + div [data-testid="stTextInput"] input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23934F22" viewBox="0 0 16 16"><path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>') !important;
             background-repeat: no-repeat !important;
             background-position: 14px center !important;
         }}
         
-        /* Passcode input icon */
-        .stApp:has(.login-card-anchor) [data-testid="stForm"] [data-testid="stTextInput"]:nth-of-type(2) input {{
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%238C5A3C" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/></svg>') !important;
+        /* Password marker styles */
+        div:has(> .password-input-marker) + div [data-testid="stTextInput"] input {{
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23934F22" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/></svg>') !important;
             background-repeat: no-repeat !important;
             background-position: 14px center !important;
         }}
         
-        .stApp:has(.login-card-anchor) .tab-container {{
-            max-width: 480px !important;
-            margin: 0 auto 24px auto !important;
-            background-color: #F3ECE0 !important;
-            border-radius: 12px !important;
+        /* Segment switcher segment */
+        div:has(> .tab-switcher-marker) + div {{
+            background-color: #FCF8F2 !important;
+            border-radius: 10px !important;
             padding: 4px !important;
+            border: 1px solid #E9DED0 !important;
+            margin-bottom: 24px !important;
         }}
         
-        .stApp:has(.login-card-anchor) .tab-container [data-testid="column"] button {{
+        div:has(> .tab-switcher-marker) + div [data-testid="column"] {{
             background-color: transparent !important;
-            color: #8C8273 !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }}
+        
+        div:has(> .tab-switcher-marker) + div [data-testid="column"] button {{
+            background-color: transparent !important;
+            color: #806F62 !important;
             border: none !important;
             font-weight: 600 !important;
             border-radius: 8px !important;
@@ -478,38 +633,249 @@ def inject_custom_css():
             justify-content: center !important;
         }}
         
-        .stApp:has(.login-card-anchor) .tab-container button[kind="secondary"] {{
+        div:has(> .tab-switcher-marker) + div button[kind="secondary"] {{
             background-color: transparent !important;
-            color: #8C8273 !important;
+            color: #806F62 !important;
             border: none !important;
             box-shadow: none !important;
         }}
         
-        .stApp:has(.login-card-anchor) .tab-container button[kind="primary"] {{
-            background-color: #FFFFFF !important;
-            color: #8C5A3C !important;
-            border: none !important;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+        div:has(> .tab-switcher-marker) + div button[kind="primary"] {{
+            background-color: #FFFDF9 !important;
+            color: #934F22 !important;
+            box-shadow: 0 2px 8px rgba(147, 79, 34, 0.08) !important;
+            border: 1px solid #E9DED0 !important;
         }}
         
+        /* Remember row custom alignment styling */
+        div:has(> .remember-row-marker) + div {{
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin-top: 10px !important;
+            margin-bottom: 16px !important;
+        }}
+        
+        div:has(> .remember-row-marker) + div [data-testid="column"] {{
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }}
+        
+        div:has(> .remember-row-marker) + div [data-testid="column"] [data-testid="stCheckbox"] label {{
+            color: #806F62 !important;
+            font-size: 0.85rem !important;
+        }}
+        
+        /* Form submit button */
         .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button {{
-            background-color: #8C5A3C !important;
+            background-color: #934F22 !important;
             color: #FFFFFF !important;
             border-radius: 10px !important;
             padding: 12px 24px !important;
             font-weight: 600 !important;
             border: none !important;
             height: 48px !important;
-            transition: background-color 0.2s ease !important;
+            transition: all 0.2s ease !important;
+            width: 100% !important;
+            font-size: 1rem !important;
+            box-shadow: 0 4px 12px rgba(147, 79, 34, 0.15) !important;
         }}
         
         .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button:hover {{
-            background-color: #7A4F30 !important;
+            background-color: #7E3F18 !important;
+            box-shadow: 0 6px 16px rgba(147, 79, 34, 0.2) !important;
+        }}
+        .stApp:has(.login-card-anchor) [data-testid="stFormSubmitButton"] button:active {{
+            background-color: #6B3310 !important;
         }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_top_header():
+    col_search, col_profile = st.columns([1, 1])
+    with col_search:
+        st.markdown('<div class="global-search-marker"></div>', unsafe_allow_html=True)
+        st.text_input("Search", placeholder="Search transactions, insights, accounts...", label_visibility="collapsed", key="global_search")
+    with col_profile:
+        role_label = "Banker" if st.session_state.role == "banker" else "Client User"
+        col_prof_text, col_prof_logout = st.columns([4, 1])
+        with col_prof_text:
+            st.markdown(
+                f"""
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 4px;">
+                    <div style="display: flex; gap: 12px; margin-right: 8px;">
+                        <span style="cursor: pointer; font-size: 1.15rem; color: #806F62;" title="Notifications">🔔</span>
+                        <span style="cursor: pointer; font-size: 1.15rem; color: #806F62;" title="Settings">⚙️</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="user-avatar-circle" style="width: 32px; height: 32px; border-radius: 50%; background-color: #934F22; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem;">
+                            {st.session_state.user_id[:2].upper() if st.session_state.user_id else "U"}
+                        </div>
+                        <div style="text-align: left; line-height: 1.2;">
+                            <div style="font-size: 0.85rem; font-weight: 600; color: #33241B;">{st.session_state.user_id}</div>
+                            <div style="font-size: 0.75rem; color: #806F62;">{role_label}</div>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with col_prof_logout:
+            if st.button("Logout", key="btn_header_logout", use_container_width=True):
+                st.session_state.logged_in = False
+                st.session_state.user_id = None
+                st.session_state.role = None
+                st.session_state.messages = []
+                st.session_state.chat_user_id = None
+                st.rerun()
+
+
+def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en"):
+    # Calculate stats
+    score = credit["score"] if credit else 300
+    computed_at = credit["computed_at"] if credit else "N/A"
+    
+    fraud_count = len(fraud_df)
+    subs_count = len(subs_df)
+    subs_total = subs_df["avg_amount"].sum() if not subs_df.empty else 0.0
+    
+    # Rating label for circle
+    if score >= 750:
+        rating = "EXCELLENT"
+    elif score >= 650:
+        rating = "GOOD"
+    elif score >= 550:
+        rating = "FAIR"
+    else:
+        rating = "POOR"
+        
+    percentage = (score - 300) / 600.0
+    stroke_offset = 314 - (314 * percentage)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Credit Score Card with Circular SVG Progress Ring
+        st.markdown(
+            f"""
+            <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; padding: 20px !important;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; align-self: flex-start;">Credit Score</div>
+                <div class="circular-progress-container" style="position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                    <svg width="120" height="120" viewBox="0 0 120 120" style="position: absolute; top: 0; left: 0;">
+                        <circle cx="60" cy="60" r="50" stroke="#FCF8F2" stroke-width="8" fill="transparent" />
+                        <circle cx="60" cy="60" r="50" stroke="#934F22" stroke-width="8" fill="transparent" 
+                                stroke-dasharray="314" stroke-dashoffset="{stroke_offset:.1f}" stroke-linecap="round" transform="rotate(-90 60 60)" />
+                    </svg>
+                    <div style="z-index: 10;">
+                        <div style="font-size: 1.85rem; font-weight: 700; color: #33241B; line-height: 1.1;">{score:.0f}</div>
+                        <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #806F62; margin-top: 2px;">{rating}</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.75rem; color: #806F62;">Computed {computed_at}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+    with col2:
+        # Fraud Alerts Card
+        st.markdown(
+            f"""
+            <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px !important;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">Fraud Alerts</div>
+                    <div style="color: #B33939; font-size: 1.1rem;">🛡️</div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <div style="font-size: 2.5rem; font-weight: 700; color: #33241B; line-height: 1;">{fraud_count}</div>
+                    <div style="margin-top: 10px;">
+                        <span class="status-badge" style="background: rgba(179, 57, 57, 0.05); color: #B33939; border: 1px solid rgba(179, 57, 57, 0.15); font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 4px;">
+                            {"⚠️ Active Attention" if fraud_count > 0 else "✅ System Clean"}
+                        </span>
+                    </div>
+                </div>
+                <div style="font-size: 0.75rem; color: #806F62;">Flags detected by rule engine</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+    with col3:
+        # Active Subs Card
+        st.markdown(
+            f"""
+            <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px !important;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">Active Subs</div>
+                    <div style="color: #4A7C59; font-size: 1.1rem;">💳</div>
+                </div>
+                <div style="margin: 20px 0;">
+                    <div style="font-size: 2.5rem; font-weight: 700; color: #33241B; line-height: 1;">{subs_count}</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: #934F22; margin-top: 4px;">₹{subs_total:,.2f} / mo</div>
+                </div>
+                <div style="font-size: 0.75rem; color: #806F62;">Recurring Autopays detected</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+def render_credit_score_details(credit: dict | None, language: str = "en"):
+    open_section_card("Credit Score Insights", "Mathematical component breakdown")
+    if not credit:
+        st.info("No credit score computed for this user yet.")
+        close_section_card()
+        return
+
+    st.markdown(
+        progress_bar_html("Income Regularity", credit["income_regularity"], f"{credit['income_regularity'] * 100:.0f}%")
+        + progress_bar_html("Expense Ratio", credit["expense_ratio"], f"{credit['expense_ratio'] * 100:.0f}%")
+        + progress_bar_html("Volatility Index", credit["volatility"], f"{credit['volatility']:.2f}v"),
+        unsafe_allow_html=True,
+    )
+
+    income_reg = credit["income_regularity"]
+    expense_score = credit["expense_ratio"]
+    volatility_score = credit["volatility"]
+
+    income_weighted = income_reg * 0.45
+    expense_weighted = expense_score * 0.30
+    volatility_weighted = volatility_score * 0.25
+    weighted_sum = income_weighted + expense_weighted + volatility_weighted
+    score_contrib = weighted_sum * 600
+    final_computed = 300 + score_contrib
+    final_score = round(final_computed)
+
+    loc = CREDIT_SCORE_EXPLANATION_LOCALIZATION.get(language, CREDIT_SCORE_EXPLANATION_LOCALIZATION["en"])
+
+    with st.expander(loc["expander_title"]):
+        st.markdown(f"**{loc['formula_title']}**")
+        st.markdown(
+            f"""
+            ```text
+            Score = 300 + (Income Regularity × 0.45 + Expense Ratio × 0.30 + Volatility × 0.25) × 600
+            = 300 + ({fmt_component(income_reg)} × 0.45 + {fmt_component(expense_score)} × 0.30 + {fmt_component(volatility_score)} × 0.25) × 600
+            = 300 + ({fmt_weighted(income_weighted)} + {fmt_weighted(expense_weighted)} + {fmt_weighted(volatility_weighted)}) × 600
+            = 300 + {score_contrib:.2f} = {final_score}
+            ```
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f"""
+            - **{loc['income_reg_label']} ({income_reg:.2f}/1.0):** {loc['income_reg_desc']}
+            - **{loc['expense_ratio_label']} ({expense_score:.2f}/1.0):** {loc['expense_ratio_desc']}
+            - **{loc['volatility_label']} ({volatility_score:.2f}/1.0):** {loc['volatility_desc']}
+            """
+        )
+
+    close_section_card()
 
 
 def open_section_card(title: str, subtitle: str = ""):
@@ -546,16 +912,17 @@ def subscription_badge_html() -> str:
     )
 
 
-def progress_bar_html(label: str, value: float) -> str:
+def progress_bar_html(label: str, value: float, display_val: str = None) -> str:
     pct = min(max(value, 0.0), 1.0)
+    disp = display_val if display_val is not None else f"{value:.2f}"
     return f"""
     <div class="progress-item">
-        <div class="progress-label">
+        <div class="progress-label" style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 500; color: #33241B; margin-bottom: 6px;">
             <span>{label}</span>
-            <span>{value:.2f}</span>
+            <span style="font-weight: 600; color: #934F22;">{disp}</span>
         </div>
-        <div class="progress-track">
-            <div class="progress-fill" style="width:{pct * 100:.1f}%;"></div>
+        <div class="progress-track" style="height: 6px; background: #E9DED0; border-radius: 999px; overflow: hidden; margin-bottom: 16px;">
+            <div class="progress-fill" style="height: 100%; width: {pct * 100:.1f}%; background: #934F22; border-radius: 999px; transition: width 0.3s ease;"></div>
         </div>
     </div>
     """
@@ -1514,8 +1881,8 @@ def render_loan_application_section(conn, user_id: str, language: str = "en"):
     
     st.markdown(
         f"""
-        <div style="background-color: #f0f7f4; border: 1px solid #c2e0d1; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #2e7d32; font-weight: 500; font-size: 0.95rem;">
+        <div style="background-color: rgba(74, 124, 89, 0.04); border: 1px solid rgba(74, 124, 89, 0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #4A7C59; font-weight: 500; font-size: 0.95rem;">
                 📈 {loc['current_score_label']} <strong style="font-size: 1.15rem;">{current_score:.0f}</strong> (Range 300-900)
             </p>
         </div>
@@ -1692,58 +2059,68 @@ def render_login_page(conn):
         unsafe_allow_html=True
     )
     
-    # Pill Tab switcher container
-    st.markdown('<div class="tab-container">', unsafe_allow_html=True)
-    col_tab1, col_tab2 = st.columns(2)
-    with col_tab1:
-        if st.button("User", use_container_width=True, type="primary" if st.session_state.login_mode == "user" else "secondary", key="btn_login_tab_user"):
-            st.session_state.login_mode = "user"
-            st.rerun()
-    with col_tab2:
-        if st.button("Banker", use_container_width=True, type="primary" if st.session_state.login_mode == "banker" else "secondary", key="btn_login_tab_banker"):
-            st.session_state.login_mode = "banker"
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
     is_client = st.session_state.login_mode == "user"
     
-    with st.form("login_form"):
-        username = st.text_input("Operator ID" if is_client else "Banker ID", placeholder="Enter your ID")
-        password = st.text_input("Passcode", type="password", placeholder="••••••••")
+    with st.container():
+        st.markdown('<div class="login-card-marker"></div>', unsafe_allow_html=True)
         
-        col_rem, col_rec = st.columns(2)
-        with col_rem:
-            remember_device = st.checkbox("Remember device", value=False)
-        with col_rec:
-            st.markdown(
-                '<p style="text-align: right; margin-top: 6px; margin-bottom: 0px;">'
-                '<a href="#" style="color: #8C5A3C; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Recovery</a>'
-                '</p>',
-                unsafe_allow_html=True
-            )
+        # Segment switcher (placed inside the container, outside the form, so st.button works!)
+        st.markdown('<div class="tab-switcher-marker"></div>', unsafe_allow_html=True)
+        col_tab1, col_tab2 = st.columns(2)
+        with col_tab1:
+            if st.button("User", use_container_width=True, type="primary" if st.session_state.login_mode == "user" else "secondary", key="btn_login_tab_user"):
+                st.session_state.login_mode = "user"
+                st.rerun()
+        with col_tab2:
+            if st.button("Banker", use_container_width=True, type="primary" if st.session_state.login_mode == "banker" else "secondary", key="btn_login_tab_banker"):
+                st.session_state.login_mode = "banker"
+                st.rerun()
+                
+        # Borderless form for security/validation inputs
+        with st.form("login_form", border=False):
+            # Operator ID input
+            st.markdown('<div class="username-input-marker"></div>', unsafe_allow_html=True)
+            username = st.text_input("Operator ID" if is_client else "Banker ID", placeholder="Enter your ID")
             
-        submitted = st.form_submit_button("Authenticate Session \u2192", use_container_width=True)
-        if submitted:
-            if not username or not password:
-                st.error("Please enter both ID and passcode.")
-            else:
-                res = login_user(conn, username, password)
-                if res:
-                    user_id, role = res
-                    if is_client and role != "user":
-                        st.error("This account belongs to a Banker. Please authenticate through the Banker Portal.")
-                    elif not is_client and role != "banker":
-                        st.error("This account belongs to a Client. Please authenticate through the User Portal.")
-                    else:
-                        st.session_state.logged_in = True
-                        st.session_state.user_id = user_id
-                        st.session_state.role = role
-                        st.session_state.chat_user_id = user_id
-                        st.session_state.messages = []
-                        st.success("Authenticated successfully!")
-                        st.rerun()
+            # Passcode input
+            st.markdown('<div class="password-input-marker"></div>', unsafe_allow_html=True)
+            password = st.text_input("Passcode", type="password", placeholder="••••••••")
+            
+            # Remember row
+            st.markdown('<div class="remember-row-marker"></div>', unsafe_allow_html=True)
+            col_rem, col_rec = st.columns(2)
+            with col_rem:
+                remember_device = st.checkbox("Remember device", value=False)
+            with col_rec:
+                st.markdown(
+                    '<p style="text-align: right; margin-top: 6px; margin-bottom: 0px;">'
+                    '<a href="#" style="color: #8C5A3C; text-decoration: none; font-size: 0.85rem; font-weight: 600;">Recovery</a>'
+                    '</p>',
+                    unsafe_allow_html=True
+                )
+                
+            submitted = st.form_submit_button("Authenticate Session \u2192", use_container_width=True)
+            if submitted:
+                if not username or not password:
+                    st.error("Please enter both ID and passcode.")
                 else:
-                    st.error("Invalid credentials.")
+                    res = login_user(conn, username, password)
+                    if res:
+                        user_id, role = res
+                        if is_client and role != "user":
+                            st.error("This account belongs to a Banker. Please authenticate through the Banker Portal.")
+                        elif not is_client and role != "banker":
+                            st.error("This account belongs to a Client. Please authenticate through the User Portal.")
+                        else:
+                            st.session_state.logged_in = True
+                            st.session_state.user_id = user_id
+                            st.session_state.role = role
+                            st.session_state.chat_user_id = user_id
+                            st.session_state.messages = []
+                            st.success("Authenticated successfully!")
+                            st.rerun()
+                    else:
+                        st.error("Invalid credentials.")
 
     st.markdown(
         '<p style="text-align: center; color: #8C8273; font-size: 0.85rem; margin-top: 40px; font-weight: 500;">'
@@ -1782,11 +2159,15 @@ def calculate_income_stats(conn, user_id: str) -> dict:
 def render_banker_dashboard(conn):
     st.markdown(
         """
-        <div style="background-color: #ffebe9; border: 1px solid #ffc1c0; padding: 18px; border-radius: 12px; margin-bottom: 24px;">
-            <h4 style="color: #cf222e; margin: 0 0 8px 0; font-weight: 700; letter-spacing: -0.01em;">🔒 CONFIDENTIAL — BANKER PORTAL</h4>
-            <p style="color: #24292f; margin: 0; font-size: 0.95rem; line-height: 1.5;">
+        <div style="background-color: rgba(179, 57, 57, 0.04); border: 1px solid rgba(179, 57, 57, 0.15); padding: 18px; border-radius: 12px; margin-bottom: 24px;">
+            <h4 style="color: #B33939; margin: 0 0 8px 0; font-weight: 700; letter-spacing: -0.01em;">🔒 CONFIDENTIAL — BANKER PORTAL</h4>
+            <p style="color: #3D2A20; margin: 0; font-size: 0.95rem; line-height: 1.5;">
                 Authorized risk audit view. Review applicant details and log credit decisions.
             </p>
+        </div>
+        <div class="page-heading">
+            <h2 class="page-title">Banker Dashboard</h2>
+            <p class="page-description">Review cash-flow based loan requests from applicants and analyze volatility.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -1852,11 +2233,14 @@ def render_banker_dashboard(conn):
         subs_df = load_subscriptions(conn, selected_user_id)
         credit = load_credit_score(conn, selected_user_id)
 
+        render_top_overview_cards(selected_user_id, credit, fraud_df, subs_df, language=selected_lang)
+        st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
         col_feed, col_score = st.columns([2, 1])
         with col_feed:
             render_financial_events(fraud_df, subs_df, conn, selected_user_id, language=selected_lang)
         with col_score:
-            render_credit_score(credit, language=selected_lang)
+            render_credit_score_details(credit, language=selected_lang)
 
         # Inflow & Gig-Work Volatility
         stats = calculate_income_stats(conn, selected_user_id)
@@ -2092,17 +2476,6 @@ def main():
     )
     inject_custom_css()
 
-    st.markdown(
-        """
-        <div class="page-header">
-            <h1 class="brand-title">PayLens</h1>
-            <div class="brand-accent-bar"></div>
-            <p class="brand-subtitle">Rule-engine insights with Groq-powered explanations</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     init_session_state()
     conn = get_connection()
 
@@ -2111,19 +2484,8 @@ def main():
         render_login_page(conn)
         st.stop()
 
-    # 2. Render Logged-in Navigation / Header bar
-    col_user, col_logout = st.columns([4, 1])
-    with col_user:
-        role_label = "Banker" if st.session_state.role == "banker" else "Client User"
-        st.markdown(f"👤 **Logged in as:** `{st.session_state.user_id}` ({role_label})")
-    with col_logout:
-        if st.button("Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_id = None
-            st.session_state.role = None
-            st.session_state.messages = []
-            st.session_state.chat_user_id = None
-            st.rerun()
+    # 2. Render Premium Logged-in Top Header bar
+    render_top_header()
 
     users = load_users(conn)
     if not users:
@@ -2142,9 +2504,9 @@ def main():
         st.sidebar.markdown(
             """
             <div style="padding: 10px 0 20px 0; text-align: center;">
-                <h3 style="color: #2B2B2B; margin: 0; font-weight: 700; letter-spacing: -0.02em;">PayLens</h3>
-                <p style="color: #8A8378; margin: 2px 0 0 0; font-size: 0.825rem;">Alternate Credit Engine</p>
-                <div style="width: 48px; height: 3px; background: #E8A87C; margin: 10px auto 0 auto; border-radius: 999px;"></div>
+                <h3 style="color: #3D2A20; margin: 0; font-weight: 700; letter-spacing: -0.02em;">PayLens</h3>
+                <p style="color: #806F62; margin: 2px 0 0 0; font-size: 0.825rem;">Alternate Credit Engine</p>
+                <div style="width: 48px; height: 3px; background: #934F22; margin: 10px auto 0 auto; border-radius: 999px;"></div>
             </div>
             """,
             unsafe_allow_html=True
@@ -2188,9 +2550,9 @@ def main():
         selected_user = next(u for u in users if u["user_id"] == user_id)
         
         st.markdown(
-            f'<div style="background-color: #FFFFFF; border: 1px solid #E5DDD2; padding: 20px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">'
-            f'<h2 style="margin: 0; font-weight: 700; color: #2B2B2B; letter-spacing: -0.02em;">Welcome, {selected_user["name"]}</h2>'
-            f'<p style="color: #8A8378; margin: 6px 0 0 0; font-size: 0.95rem;">Estimated income: <strong>₹{selected_user["monthly_income_estimate"]:,.0f}/mo</strong> · ID: <code>{user_id}</code></p>'
+            f'<div style="background-color: #FFFDF9; border: 1px solid #E9DED0; padding: 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(61, 42, 32, 0.02);">'
+            f'<h2 style="margin: 0; font-weight: 700; color: #3D2A20; letter-spacing: -0.02em;">Welcome, {selected_user["name"]}</h2>'
+            f'<p style="color: #806F62; margin: 6px 0 0 0; font-size: 0.95rem;">Estimated income: <strong>₹{selected_user["monthly_income_estimate"]:,.0f}/mo</strong> · ID: <code style="background-color:#FCF8F2; color:#934F22; padding: 2px 6px; border-radius: 4px; border:1px solid #E9DED0;">{user_id}</code></p>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -2201,11 +2563,23 @@ def main():
 
         # Tab Routing
         if active_tab == "Home":
+            st.markdown(
+                """
+                <div class="page-heading">
+                    <h2 class="page-title">Overview</h2>
+                    <p class="page-description">Your high-level financial health indicators.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            render_top_overview_cards(user_id, credit, fraud_df, subs_df, language=selected_lang)
+            st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+            
             col_feed, col_score = st.columns([2, 1])
             with col_feed:
                 render_financial_events(fraud_df, subs_df, conn, user_id, language=selected_lang)
             with col_score:
-                render_credit_score(credit, language=selected_lang)
+                render_credit_score_details(credit, language=selected_lang)
 
             if not fraud_df.empty:
                 with st.expander("Fraud flags table"):
@@ -2233,12 +2607,39 @@ def main():
             render_my_complaints(complaints_df, language=selected_lang)
 
         elif active_tab == "Transactions":
+            st.markdown(
+                """
+                <div class="page-heading">
+                    <h2 class="page-title">Transactions</h2>
+                    <p class="page-description">Comprehensive log of UPI transactions.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             render_user_transactions(conn, user_id, language=selected_lang)
 
         elif active_tab == "Loans":
+            st.markdown(
+                """
+                <div class="page-heading">
+                    <h2 class="page-title">Micro-Loans</h2>
+                    <p class="page-description">Apply for financing and view previous application logs.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             render_loan_application_section(conn, user_id, language=selected_lang)
 
         elif active_tab == "Chat":
+            st.markdown(
+                """
+                <div class="page-heading">
+                    <h2 class="page-title">Chat Assistant</h2>
+                    <p class="page-description">Ask queries about fraud alerts, subscriptions, or scores.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             render_chat(conn, user_id, language=selected_lang)
 
 
