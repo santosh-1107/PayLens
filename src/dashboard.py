@@ -7,17 +7,39 @@ Run from inside src/:
     streamlit run dashboard.py
 """
 
+import hashlib
+import os
 import sqlite3
 import tempfile
 from pathlib import Path
 
+from dotenv import load_dotenv
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_ENV_PATH, override=True)
+
 import pandas as pd
 import streamlit as st
 
-from chat_layer import explain
+from chat_layer import explain, test_groq_connection, _response_cache
 from auth import login_user
+from policy_engine import (
+    ensure_policy_tables,
+    get_all_policies,
+    get_policy_by_id,
+    save_policy,
+    get_applicant_risk_profile,
+    get_credit_timeline,
+    evaluate_applicant,
+    generate_rejection_explanation,
+    record_evaluation_audit,
+    get_evaluation_audit,
+    get_latest_evaluation_for_applicant,
+)
 
 DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "upi_transactions.db")
+AUDIO_CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "audio_cache"
+AUDIO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+_audio_memory_cache: dict[tuple[str, str], bytes] = {}
 
 REASON_LABELS = {
     "amount_spike": "Unusual amount spike vs. your typical spending",
@@ -736,7 +758,55 @@ def render_top_header():
                 st.rerun()
 
 
+OVERVIEW_LOCALIZATION = {
+    "en": {
+        "credit_title": "Credit Score",
+        "fraud_title": "Fraud Alerts",
+        "subs_title": "Active Subs",
+        "computed_prefix": "Computed",
+        "fraud_active": "⚠️ Active Attention",
+        "fraud_clean": "✅ System Clean",
+        "fraud_subtitle": "Flags detected by rule engine",
+        "subs_subtitle": "Recurring Autopays detected",
+        "ratings": {"EXCELLENT": "EXCELLENT", "GOOD": "GOOD", "FAIR": "FAIR", "POOR": "POOR"},
+        "credit_insights_title": "Credit Score Insights",
+        "credit_insights_sub": "Mathematical component breakdown",
+        "no_credit": "No credit score computed for this user yet.",
+    },
+    "hi": {
+        "credit_title": "क्रेडिट स्कोर",
+        "fraud_title": "धोखाधड़ी अलर्ट",
+        "subs_title": "सक्रिय सदस्यताएँ",
+        "computed_prefix": "परिकलित",
+        "fraud_active": "⚠️ तत्काल ध्यान आवश्यक",
+        "fraud_clean": "✅ सुरक्षित खाता",
+        "fraud_subtitle": "सिस्टम द्वारा पहचाने गए संदिग्ध लेन-देन",
+        "subs_subtitle": "पहचाने गए आवर्ती ऑटोपे (Autopays)",
+        "ratings": {"EXCELLENT": "उत्कृष्ट", "GOOD": "अच्छा", "FAIR": "संतोषजनक", "POOR": "कमजोर"},
+        "credit_insights_title": "क्रेडिट स्कोर विश्लेषण",
+        "credit_insights_sub": "गणितीय घटक विश्लेषण",
+        "no_credit": "इस उपयोगकर्ता के लिए कोई क्रेडिट स्कोर अभी उपलब्ध नहीं है।",
+    },
+    "ta": {
+        "credit_title": "கிரெடிட் மதிப்பெண்",
+        "fraud_title": "மோசடி எச்சரிக்கைகள்",
+        "subs_title": "செயலில் உள்ள சந்தாக்கள்",
+        "computed_prefix": "கணக்கிடப்பட்டது",
+        "fraud_active": "⚠️ உடனடி கவனம் தேவை",
+        "fraud_clean": "✅ பாதுகாப்பானது",
+        "fraud_subtitle": "விதிமுறை இயந்திரத்தால் குறிக்கப்பட்டது",
+        "subs_subtitle": "கண்டறியப்பட்ட தொடர் கட்டணங்கள்",
+        "ratings": {"EXCELLENT": "சிறந்தது", "GOOD": "நன்று", "FAIR": "சராசரி", "POOR": "குறைவு"},
+        "credit_insights_title": "கிரெடிட் ஸ்கோர் பகுப்பாய்வு",
+        "credit_insights_sub": "கணித கூறு பகுப்பாய்வு",
+        "no_credit": "இந்த பயனருக்கு கிரெடிட் ஸ்கோர் இன்னும் கணக்கிடப்படவில்லை.",
+    }
+}
+
+
 def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en"):
+    loc = OVERVIEW_LOCALIZATION.get(language, OVERVIEW_LOCALIZATION["en"])
+    
     # Calculate stats
     score = credit["score"] if credit else 300
     computed_at = credit["computed_at"] if credit else "N/A"
@@ -747,13 +817,15 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
     
     # Rating label for circle
     if score >= 750:
-        rating = "EXCELLENT"
+        raw_rating = "EXCELLENT"
     elif score >= 650:
-        rating = "GOOD"
+        raw_rating = "GOOD"
     elif score >= 550:
-        rating = "FAIR"
+        raw_rating = "FAIR"
     else:
-        rating = "POOR"
+        raw_rating = "POOR"
+        
+    rating = loc["ratings"].get(raw_rating, raw_rating)
         
     percentage = (score - 300) / 600.0
     stroke_offset = 314 - (314 * percentage)
@@ -765,7 +837,7 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
         st.markdown(
             f"""
             <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; padding: 20px !important;">
-                <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; align-self: flex-start;">Credit Score</div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; align-self: flex-start;">{loc["credit_title"]}</div>
                 <div class="circular-progress-container" style="position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
                     <svg width="120" height="120" viewBox="0 0 120 120" style="position: absolute; top: 0; left: 0;">
                         <circle cx="60" cy="60" r="50" stroke="#FCF8F2" stroke-width="8" fill="transparent" />
@@ -777,7 +849,7 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
                         <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #806F62; margin-top: 2px;">{rating}</div>
                     </div>
                 </div>
-                <div style="font-size: 0.75rem; color: #806F62;">Computed {computed_at}</div>
+                <div style="font-size: 0.75rem; color: #806F62;">{loc["computed_prefix"]} {computed_at}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -785,22 +857,23 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
         
     with col2:
         # Fraud Alerts Card
+        status_label = loc["fraud_active"] if fraud_count > 0 else loc["fraud_clean"]
         st.markdown(
             f"""
             <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px !important;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">Fraud Alerts</div>
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">{loc["fraud_title"]}</div>
                     <div style="color: #B33939; font-size: 1.1rem;">🛡️</div>
                 </div>
                 <div style="margin: 20px 0;">
                     <div style="font-size: 2.5rem; font-weight: 700; color: #33241B; line-height: 1;">{fraud_count}</div>
                     <div style="margin-top: 10px;">
                         <span class="status-badge" style="background: rgba(179, 57, 57, 0.05); color: #B33939; border: 1px solid rgba(179, 57, 57, 0.15); font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 4px;">
-                            {"⚠️ Active Attention" if fraud_count > 0 else "✅ System Clean"}
+                            {status_label}
                         </span>
                     </div>
                 </div>
-                <div style="font-size: 0.75rem; color: #806F62;">Flags detected by rule engine</div>
+                <div style="font-size: 0.75rem; color: #806F62;">{loc["fraud_subtitle"]}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -812,14 +885,14 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
             f"""
             <div class="section-card" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px !important;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">Active Subs</div>
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #806F62; text-transform: uppercase; letter-spacing: 0.05em;">{loc["subs_title"]}</div>
                     <div style="color: #4A7C59; font-size: 1.1rem;">💳</div>
                 </div>
                 <div style="margin: 20px 0;">
                     <div style="font-size: 2.5rem; font-weight: 700; color: #33241B; line-height: 1;">{subs_count}</div>
                     <div style="font-size: 0.95rem; font-weight: 600; color: #934F22; margin-top: 4px;">₹{subs_total:,.2f} / mo</div>
                 </div>
-                <div style="font-size: 0.75rem; color: #806F62;">Recurring Autopays detected</div>
+                <div style="font-size: 0.75rem; color: #806F62;">{loc["subs_subtitle"]}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -827,16 +900,19 @@ def render_top_overview_cards(user_id, credit, fraud_df, subs_df, language="en")
 
 
 def render_credit_score_details(credit: dict | None, language: str = "en"):
-    open_section_card("Credit Score Insights", "Mathematical component breakdown")
+    loc_overview = OVERVIEW_LOCALIZATION.get(language, OVERVIEW_LOCALIZATION["en"])
+    open_section_card(loc_overview["credit_insights_title"], loc_overview["credit_insights_sub"])
     if not credit:
-        st.info("No credit score computed for this user yet.")
+        st.info(loc_overview["no_credit"])
         close_section_card()
         return
 
+    loc = CREDIT_SCORE_EXPLANATION_LOCALIZATION.get(language, CREDIT_SCORE_EXPLANATION_LOCALIZATION["en"])
+
     st.markdown(
-        progress_bar_html("Income Regularity", credit["income_regularity"], f"{credit['income_regularity'] * 100:.0f}%")
-        + progress_bar_html("Expense Ratio", credit["expense_ratio"], f"{credit['expense_ratio'] * 100:.0f}%")
-        + progress_bar_html("Volatility Index", credit["volatility"], f"{credit['volatility']:.2f}v"),
+        progress_bar_html(loc["income_reg_label"], credit["income_regularity"], f"{credit['income_regularity'] * 100:.0f}%")
+        + progress_bar_html(loc["expense_ratio_label"], credit["expense_ratio"], f"{credit['expense_ratio'] * 100:.0f}%")
+        + progress_bar_html(loc["volatility_label"], credit["volatility"], f"{credit['volatility']:.2f}v"),
         unsafe_allow_html=True,
     )
 
@@ -996,7 +1072,7 @@ def load_users(conn) -> list[dict]:
     ]
 
 
-def load_fraud_flags(conn, user_id: str) -> pd.DataFrame:
+def load_fraud_flags(conn, user_id: str, language: str = "en") -> pd.DataFrame:
     df = pd.read_sql_query(
         """
         SELECT
@@ -1020,7 +1096,7 @@ def load_fraud_flags(conn, user_id: str) -> pd.DataFrame:
         params=(user_id,),
     )
     if not df.empty:
-        df["reasons_plain"] = df["reasons"].apply(format_reasons)
+        df["reasons_plain"] = df["reasons"].apply(lambda r: format_reasons(r, language=language))
     return df
 
 
@@ -1069,11 +1145,17 @@ def load_credit_score(conn, user_id: str) -> dict | None:
     }
 
 
-def format_reasons(reasons: str) -> str:
+def format_reasons(reasons: str, language: str = "en") -> str:
     if not reasons:
+        if language == "hi":
+            return "कोई कारण दर्ज नहीं"
+        elif language == "ta":
+            return "காரணங்கள் எதுவும் பதிவு செய்யப்படவில்லை"
         return "No reasons recorded"
-    parts = [REASON_LABELS.get(r.strip(), r.strip()) for r in reasons.split(",")]
-    return "; ".join(parts)
+    lang_cfg = VOICE_TEMPLATES.get(language, VOICE_TEMPLATES.get("en", {}))
+    lang_reasons = lang_cfg.get("reasons", {})
+    parts = [lang_reasons.get(r.strip()) or REASON_LABELS.get(r.strip(), r.strip()) for r in reasons.split(",")]
+    return " · ".join(parts)
 
 
 VOICE_TEMPLATES = {
@@ -1275,7 +1357,24 @@ def build_subscription_voice_text(
 
 
 def generate_voice_alert(text: str, language: str = "en") -> bytes | None:
-    """Generate MP3 bytes via gTTS; save via temp file. Returns None on failure."""
+    """Generate MP3 bytes via gTTS with disk/memory caching; returns None on network failure."""
+    if not text:
+        return None
+    cache_key = (text, language)
+    if cache_key in _audio_memory_cache:
+        return _audio_memory_cache[cache_key]
+
+    # Check disk cache
+    h = hashlib.md5(f"{language}:{text}".encode("utf-8")).hexdigest()
+    disk_file = AUDIO_CACHE_DIR / f"{h}.mp3"
+    if disk_file.exists():
+        try:
+            data = disk_file.read_bytes()
+            _audio_memory_cache[cache_key] = data
+            return data
+        except Exception:
+            pass
+
     tmp_path = None
     try:
         from gtts import gTTS
@@ -1283,12 +1382,107 @@ def generate_voice_alert(text: str, language: str = "en") -> bytes | None:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
         gTTS(text=text, lang=language).save(tmp_path)
-        return Path(tmp_path).read_bytes()
+        data = Path(tmp_path).read_bytes()
+        _audio_memory_cache[cache_key] = data
+        try:
+            disk_file.write_bytes(data)
+        except Exception:
+            pass
+        return data
     except Exception:
         return None
     finally:
         if tmp_path:
             Path(tmp_path).unlink(missing_ok=True)
+
+
+def render_browser_speech_fallback(text: str, language: str = "en", button_label: str = "🔊 Play via Browser Speech"):
+    """HTML5 Web Speech API fallback that works offline directly in user's browser."""
+    lang_map = {"en": "en-IN", "hi": "hi-IN", "ta": "ta-IN"}
+    speech_lang = lang_map.get(language, "en-IN")
+    safe_text = text.replace('"', '&quot;').replace("'", "&#39;").replace("\n", " ")
+    html_code = f"""
+    <div style="margin-top: 8px;">
+        <button onclick="(function(){{
+            var u = new SpeechSynthesisUtterance('{safe_text}');
+            u.lang = '{speech_lang}';
+            window.speechSynthesis.speak(u);
+        }})()" style="background-color: #934F22; color: #FFF; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">
+            {button_label}
+        </button>
+    </div>
+    """
+    st.markdown(html_code, unsafe_allow_html=True)
+
+
+EVENTS_LOCALIZATION = {
+    "en": {
+        "fraud_section_title": "Fraud Flags",
+        "fraud_section_sub": "Suspicious transactions flagged by the rule engine",
+        "no_fraud": "No fraud flags detected for this user.",
+        "badge_alert": "Fraud Alert",
+        "btn_why": "Why was this flagged?",
+        "btn_voice_alert": "Play Voice Alert",
+        "subs_section_title": "Subscriptions",
+        "subs_section_sub": "Recurring payments detected from transaction patterns",
+        "no_subs": "No recurring subscriptions detected for this user.",
+        "badge_sub": "Recurring Payment",
+        "btn_voice_sub": "Play Voice Summary",
+        "speech_fallback_alert": "🔊 Play Alert via Browser Speech",
+        "speech_fallback_sub": "🔊 Play Summary via Browser Speech",
+    },
+    "hi": {
+        "fraud_section_title": "धोखाधड़ी अलर्ट (Fraud Flags)",
+        "fraud_section_sub": "सिस्टम द्वारा पहचाने गए संदिग्ध लेन-देन",
+        "no_fraud": "इस उपयोगकर्ता के लिए कोई धोखाधड़ी अलर्ट नहीं मिला।",
+        "badge_alert": "धोखाधड़ी अलर्ट",
+        "btn_why": "यह क्यों फ्लैग किया गया?",
+        "btn_voice_alert": "वॉइस अलर्ट सुनें",
+        "subs_section_title": "सक्रिय सदस्यताएँ (Subscriptions)",
+        "subs_section_sub": "लेन-देन पैटर्न से पहचानी गई आवर्ती सदस्यताएँ",
+        "no_subs": "इस उपयोगकर्ता के लिए कोई आवर्ती सदस्यता नहीं मिली।",
+        "badge_sub": "आवर्ती भुगतान",
+        "btn_voice_sub": "वॉइस सारांश सुनें",
+        "speech_fallback_alert": "🔊 ब्राउज़र स्पीच द्वारा सुनें",
+        "speech_fallback_sub": "🔊 ब्राउज़र स्पीच द्वारा सुनें",
+    },
+    "ta": {
+        "fraud_section_title": "மோசடி எச்சரிக்கைகள் (Fraud Flags)",
+        "fraud_section_sub": "விதிமுறை இயந்திரத்தால் குறிக்கப்பட்ட சந்தேகத்திற்கிடமான பரிவர்த்தனைகள்",
+        "no_fraud": "இந்த பயனருக்கு எந்த மோசடி எச்சரிக்கைகளும் இல்லை.",
+        "badge_alert": "மோசடி எச்சரிக்கை",
+        "btn_why": "இது ஏன் குறிக்கப்பட்டது?",
+        "btn_voice_alert": "குரல் எச்சரிக்கை",
+        "subs_section_title": "சந்தாக்கள் (Subscriptions)",
+        "subs_section_sub": "பரிவர்த்தனை வடிவங்களிலிருந்து கண்டறியப்பட்ட தொடர் கட்டணங்கள்",
+        "no_subs": "இந்த பயனருக்கு எந்த தொடர் சந்தாக்களும் இல்லை.",
+        "badge_sub": "தொடர் கட்டணம்",
+        "btn_voice_sub": "குரல் சுருக்கம்",
+        "speech_fallback_alert": "🔊 உலாவி குரல் மூலம் கேட்கவும்",
+        "speech_fallback_sub": "🔊 உலாவி குரல் மூலம் கேட்கவும்",
+    }
+}
+
+CHAT_LOCALIZATION = {
+    "en": {
+        "title": "Ask about your data",
+        "subtitle": "Ask about fraud flags, subscriptions, or your credit score. Financial advice is out of scope.",
+        "placeholder": "Ask a question about this user's financial data...",
+        "thinking": "Analyzing with PayLens intelligence...",
+    },
+    "hi": {
+        "title": "अपने वित्तीय डेटा के बारे में पूछें",
+        "subtitle": "धोखाधड़ी के अलर्ट, सदस्यताएँ, या क्रेडिट स्कोर के बारे में पूछें। निवेश सलाह दायरे से बाहर है।",
+        "placeholder": "अपने वित्तीय डेटा या सुविधाओं के बारे में प्रश्न पूछें...",
+        "thinking": "PayLens इंटेलिजेंस विश्लेषण कर रहा है...",
+    },
+    "ta": {
+        "title": "உங்கள் தரவைப் பற்றி கேளுங்கள்",
+        "subtitle": "மோசடி எச்சரிக்கைகள், சந்தாக்கள் அல்லது உங்கள் கிரெடிட் ஸ்கோர் பற்றி கேளுங்கள்.",
+        "placeholder": "உங்கள் நிதி தரவு அல்லது அம்சங்கள் பற்றி கேளுங்கள்...",
+        "thinking": "PayLens நுண்ணறிவு பகுப்பாய்வு செய்கிறது...",
+    }
+}
 
 
 def init_session_state():
@@ -1306,6 +1500,11 @@ def init_session_state():
         st.session_state.role = None
     if "txn_limit" not in st.session_state:
         st.session_state.txn_limit = 50
+    if "user_nav_tab" not in st.session_state:
+        st.session_state.user_nav_tab = "Home"
+    env_key = os.getenv("GROQ_API_KEY", "").strip()
+    if "groq_api_key" not in st.session_state or not st.session_state.groq_api_key:
+        st.session_state.groq_api_key = env_key
 
 
 def reset_chat_if_user_changed(user_id: str):
@@ -1555,19 +1754,21 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
     fraud_events.sort(key=lambda e: (-e["risk_score"], e["sort_date"] or ""))
     sub_events.sort(key=lambda e: e["sort_date"] or "")
 
+    loc_events = EVENTS_LOCALIZATION.get(language, EVENTS_LOCALIZATION["en"])
+
     open_section_card(
-        "Fraud Flags",
-        "Suspicious transactions flagged by the rule engine",
+        loc_events["fraud_section_title"],
+        loc_events["fraud_section_sub"],
     )
     if not fraud_events:
-        st.info("No fraud flags detected for this user.")
+        st.info(loc_events["no_fraud"])
     else:
         for event in fraud_events:
             with st.container(border=True):
                 st.markdown(
                     f"""
                     <div class="event-card-header">
-                        <span class="event-type">Fraud Alert</span>
+                        <span class="event-type">{loc_events["badge_alert"]}</span>
                         {risk_badge_html(event["risk_score"])}
                     </div>
                     <p class="event-summary">{event["display_summary"]}</p>
@@ -1578,7 +1779,7 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
                 btn_col1, btn_col2, btn_col3 = st.columns(3)
                 with btn_col1:
                     if st.button(
-                        "Why was this flagged?",
+                        loc_events["btn_why"],
                         key=f"flag_{event['flag_id']}",
                     ):
                         st.session_state.pending_question = (
@@ -1586,10 +1787,11 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
                             f"{event['risk_score']:.2f}? The reasons were: "
                             f"{event['detail']}"
                         )
+                        st.session_state.user_nav_tab = "Chat"
                         st.rerun()
                 with btn_col2:
                     if st.button(
-                        "Play Voice Alert",
+                        loc_events["btn_voice_alert"],
                         key=f"voice_{event['flag_id']}",
                     ):
                         alert_text = build_voice_alert_text(
@@ -1629,28 +1831,31 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
                 if audio_key in st.session_state:
                     st.audio(st.session_state[audio_key], format="audio/mp3")
                 if st.session_state.get(error_key):
-                    st.warning(
-                        "Could not generate voice alert — gTTS may be unavailable "
-                        "or you may be offline. The text alert is still shown above."
+                    alert_text = build_voice_alert_text(
+                        event["amount"],
+                        event["counterparty"],
+                        event["raw_reasons"],
+                        language=language,
                     )
+                    render_browser_speech_fallback(alert_text, language=language, button_label=loc_events["speech_fallback_alert"])
                 
                 if st.session_state.get("active_complaint_txn_id") == event["txn_id"]:
                     render_complaint_form(conn, user_id, event, language=language)
     close_section_card()
 
     open_section_card(
-        "Subscriptions",
-        "Recurring payments detected from transaction patterns",
+        loc_events["subs_section_title"],
+        loc_events["subs_section_sub"],
     )
     if not sub_events:
-        st.info("No recurring subscriptions detected for this user.")
+        st.info(loc_events["no_subs"])
     else:
         for event in sub_events:
             with st.container(border=True):
                 st.markdown(
                     f"""
                     <div class="event-card-header">
-                        <span class="event-type">Recurring Payment</span>
+                        <span class="event-type">{loc_events["badge_sub"]}</span>
                         {subscription_badge_html()}
                     </div>
                     <p class="event-summary">{event["display_summary"]}</p>
@@ -1662,7 +1867,7 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
                 btn_col1, btn_col2 = st.columns(2)
                 with btn_col1:
                     if st.button(
-                        "Play Voice Summary",
+                        loc_events["btn_voice_sub"],
                         key=f"sub_voice_btn_{event['sub_id']}",
                     ):
                         alert_text = build_subscription_voice_text(
@@ -1720,10 +1925,14 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
                 if audio_key in st.session_state:
                     st.audio(st.session_state[audio_key], format="audio/mp3")
                 if st.session_state.get(error_key):
-                    st.warning(
-                        "Could not generate voice summary — gTTS may be unavailable "
-                        "or you may be offline. The summary text is still shown above."
+                    alert_text = build_subscription_voice_text(
+                        counterparty_name=event["counterparty_name"],
+                        avg_amount=event["avg_amount"],
+                        interval_days=event["interval_days"],
+                        next_expected_date=event["next_expected_date"],
+                        language=language,
                     )
+                    render_browser_speech_fallback(alert_text, language=language, button_label=loc_events["speech_fallback_sub"])
         
         # Display cancellation disclaimer near the feature
         disclaimer_text = CANCELLATION_LOCALIZATION.get(language, CANCELLATION_LOCALIZATION["en"])["disclaimer"]
@@ -1732,14 +1941,14 @@ def render_financial_events(fraud_df: pd.DataFrame, subs_df: pd.DataFrame, conn,
 
 
 def render_chat(conn, user_id: str, language: str = "en"):
-    open_section_card(
-        "Ask about your data",
-        "Ask about fraud flags, subscriptions, or your credit score. Financial advice is out of scope.",
-    )
+    loc = CHAT_LOCALIZATION.get(language, CHAT_LOCALIZATION["en"])
+    open_section_card(loc["title"], loc["subtitle"])
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
+
+    api_key_override = (st.session_state.get("groq_api_key") or os.getenv("GROQ_API_KEY") or "").strip() or None
 
     # Handle pending question from a fraud-flag button
     if st.session_state.pending_question:
@@ -1749,18 +1958,18 @@ def render_chat(conn, user_id: str, language: str = "en"):
         with st.chat_message("user"):
             st.write(question)
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                answer = explain(user_id, question, conn, language=language)
+            with st.spinner(loc["thinking"]):
+                answer = explain(user_id, question, conn, language=language, api_key_override=api_key_override)
             st.write(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
-    if prompt := st.chat_input("Ask a question about this user's financial data..."):
+    if prompt := st.chat_input(loc["placeholder"]):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.write(prompt)
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                answer = explain(user_id, prompt, conn, language=language)
+            with st.spinner(loc["thinking"]):
+                answer = explain(user_id, prompt, conn, language=language, api_key_override=api_key_override)
             st.write(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
@@ -1869,6 +2078,7 @@ LOAN_LOCALIZATION = {
 
 def render_loan_application_section(conn, user_id: str, language: str = "en"):
     loc = LOAN_LOCALIZATION.get(language, LOAN_LOCALIZATION["en"])
+    ensure_policy_tables(conn)
     
     # 1. Fetch user's current score
     credit_row = conn.execute(
@@ -1884,30 +2094,64 @@ def render_loan_application_section(conn, user_id: str, language: str = "en"):
         <div style="background-color: rgba(74, 124, 89, 0.04); border: 1px solid rgba(74, 124, 89, 0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px;">
             <p style="margin: 0; color: #4A7C59; font-weight: 500; font-size: 0.95rem;">
                 📈 {loc['current_score_label']} <strong style="font-size: 1.15rem;">{current_score:.0f}</strong> (Range 300-900)
+                · <em>The PayLens score informs but does not directly decide approval — each lender evaluates their own policy rules.</em>
             </p>
         </div>
         """,
         unsafe_allow_html=True
     )
+
+    available_policies = get_all_policies(conn)
+    policy_labels = {
+        f"{p['lender_name']} ({p['policy_version']}) — Min Score: {p['min_score']:.0f}, Max Debt: {p['max_debt_ratio']*100:.0f}%": p
+        for p in available_policies
+    }
     
     with st.form(key=f"loan_apply_form_{user_id}"):
-        amount = st.number_input(loc["amount_label"], min_value=1000.0, max_value=500000.0, step=5000.0, value=25000.0)
-        
-        purpose_options = list(loc["purposes"].keys())
-        selected_purpose_label = st.selectbox(loc["purpose_label"], purpose_options)
+        col_amt, col_pol = st.columns([1, 1])
+        with col_amt:
+            amount = st.number_input(loc["amount_label"], min_value=1000.0, max_value=500000.0, step=5000.0, value=25000.0)
+            purpose_options = list(loc["purposes"].keys())
+            selected_purpose_label = st.selectbox(loc["purpose_label"], purpose_options)
+        with col_pol:
+            selected_pol_label = st.selectbox("Select Financing Partner / Lender", list(policy_labels.keys()))
+            chosen_policy = policy_labels[selected_pol_label]
+            st.caption(f"ℹ️ **Policy Details:** {chosen_policy.get('description', '')} (Max defaults: {chosen_policy['max_recent_defaults']} in {chosen_policy['recent_default_window_months']}mo)")
         
         submitted = st.form_submit_button(loc["submit_btn"], use_container_width=True)
         if submitted:
             try:
+                # 1. Insert application
+                cur = conn.execute(
+                    """
+                    INSERT INTO loan_applications (user_id, amount_requested, purpose, status, lender_id, policy_version)
+                    VALUES (?, ?, ?, 'pending', ?, ?)
+                    """,
+                    (user_id, amount, selected_purpose_label, chosen_policy["lender_id"], chosen_policy["policy_version"])
+                )
+                app_id = cur.lastrowid
+                conn.commit()
+
+                # 2. Evaluate against selected lender policy
+                eval_res = evaluate_applicant(user_id, chosen_policy, conn)
+                eval_id = record_evaluation_audit(eval_res, app_id, conn)
+
+                # 3. Update application status
+                final_status = "approved" if eval_res["decision"] == "approved" else "rejected"
                 conn.execute(
                     """
-                    INSERT INTO loan_applications (user_id, amount_requested, purpose, status)
-                    VALUES (?, ?, ?, 'pending')
+                    UPDATE loan_applications
+                    SET status = ?, evaluation_id = ?, decision_notes = ?
+                    WHERE application_id = ?
                     """,
-                    (user_id, amount, selected_purpose_label)
+                    (final_status, eval_id, eval_res["rejection_explanation"] if final_status == "rejected" else f"Approved under {chosen_policy['lender_name']} ({chosen_policy['policy_version']})", app_id)
                 )
                 conn.commit()
-                st.success(loc["success_msg"])
+
+                if final_status == "approved":
+                    st.success(f"🎉 Application APPROVED by {chosen_policy['lender_name']} ({chosen_policy['policy_version']})!")
+                else:
+                    st.warning(f"⚠️ Application not approved by {chosen_policy['lender_name']}. See 'Why was I rejected?' breakdown below.")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error submitting application: {e}")
@@ -1918,10 +2162,11 @@ def render_loan_application_section(conn, user_id: str, language: str = "en"):
     # Fetch user's applications
     apps_df = pd.read_sql_query(
         """
-        SELECT applied_at, amount_requested, purpose, status, reviewed_by, reviewed_at, decision_notes
-        FROM loan_applications
-        WHERE user_id = ?
-        ORDER BY applied_at DESC
+        SELECT la.application_id, la.applied_at, la.amount_requested, la.purpose, la.status,
+               la.lender_id, la.policy_version, la.evaluation_id, la.decision_notes
+        FROM loan_applications la
+        WHERE la.user_id = ?
+        ORDER BY la.applied_at DESC
         """,
         conn,
         params=(user_id,)
@@ -1930,17 +2175,113 @@ def render_loan_application_section(conn, user_id: str, language: str = "en"):
     if apps_df.empty:
         st.info(loc["no_apps"])
     else:
-        # Localize status badges
-        apps_df["status"] = apps_df["status"].apply(lambda s: loc["status_labels"].get(s, s))
-        
-        # Rename columns to localized headers
-        renamed_df = apps_df.rename(columns=loc["headers"])
+        # Show main history table
+        display_df = apps_df[["applied_at", "amount_requested", "purpose", "status", "lender_id", "policy_version"]].copy()
+        display_df["status"] = display_df["status"].apply(lambda s: loc["status_labels"].get(s, s))
         st.dataframe(
-            renamed_df,
+            display_df.rename(columns={
+                "applied_at": "Applied Date",
+                "amount_requested": "Amount (₹)",
+                "purpose": "Purpose",
+                "status": "Status",
+                "lender_id": "Lender",
+                "policy_version": "Policy Version"
+            }),
             hide_index=True,
             use_container_width=True
         )
-        
+
+        # -------------------------------------------------------------
+        # "WHY WAS I REJECTED?" UI (Requirement 4)
+        # -------------------------------------------------------------
+        st.markdown("---")
+        st.markdown("### ❓ Application Decisions & \"Why Was I Rejected?\"")
+        st.caption("Inspect the exact deterministic policy criteria evaluated for each application.")
+
+        for _, app_row in apps_df.iterrows():
+            eval_id = app_row.get("evaluation_id")
+            audit = get_evaluation_audit(eval_id, conn) if eval_id else None
+            
+            # Fallback to latest audit if evaluation_id not yet linked
+            if not audit and app_row["status"] == "rejected":
+                audit = get_latest_evaluation_for_applicant(user_id, conn)
+
+            is_rejected = app_row["status"] in ("rejected", "❌ நிராகரிக்கப்பட்டது")
+            badge = "❌ REJECTED" if is_rejected else ("✅ APPROVED" if app_row["status"] in ("approved", "✅ அங்கீகரிக்கப்பட்டது") else "⏳ PENDING")
+            l_name = audit["lender_name"] if audit else (app_row.get("lender_id") or "Lender")
+            p_ver = audit["policy_version"] if audit else (app_row.get("policy_version") or "v1.0")
+
+            expander_title = f"Application #{app_row['application_id']} ({app_row['purpose']} - ₹{app_row['amount_requested']:,.0f}) — {badge} ({l_name} {p_ver})"
+
+            with st.expander(expander_title, expanded=is_rejected):
+                if audit:
+                    st.markdown(f"**Lender:** `{audit['lender_name']}` · **Policy Version:** `{audit['policy_version']}` · **Evaluated At:** `{audit['evaluated_at']}`")
+                    
+                    if audit["decision"] == "rejected":
+                        # Primary failed factor callout
+                        st.markdown(
+                            f"""
+                            <div style="background-color: rgba(179, 57, 57, 0.08); border-left: 4px solid #B33939; padding: 12px 16px; border-radius: 6px; margin: 12px 0;">
+                                <strong style="color: #B33939; font-size: 1.05rem;">Primary factor:</strong><br/>
+                                <span style="font-size: 0.98rem; color: #3D2A20;">{audit['primary_failed_factor']}</span>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    # Criteria evaluation breakdown
+                    col_p, col_f = st.columns(2)
+                    with col_p:
+                        st.markdown("##### Passed Criteria")
+                        if audit["rules_passed"]:
+                            for r in audit["rules_passed"]:
+                                st.markdown(f"✅ **{r['label']}**: `PASS`\n- *Actual:* {r['actual_display']} (Threshold: {r['threshold_display']})")
+                        else:
+                            st.write("None")
+
+                    with col_f:
+                        st.markdown("##### Failed Criteria")
+                        if audit["rules_failed"]:
+                            for r in audit["rules_failed"]:
+                                st.markdown(f"❌ **{r['label']}**: `FAIL`\n- *Actual:* **{r['actual_display']}** (Threshold: {r['threshold_display']})\n- *Reason:* {r['reason']}")
+                        else:
+                            st.write("None (All policy rules satisfied)")
+
+                    # Deterministic Policy Engine Rationale
+                    if audit.get("rejection_explanation"):
+                        st.markdown("##### Policy Engine Decision Record")
+                        st.code(audit["rejection_explanation"], language="text")
+                else:
+                    st.write(f"Decision notes: {app_row.get('decision_notes') or 'Application pending review.'}")
+
+    # -------------------------------------------------------------
+    # HISTORICAL CREDIT CONTEXT & TIMELINE (Requirement 2)
+    # -------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 📜 Historical Credit Context & Timeline")
+    st.caption("Credit bureau events and historical loan behavior. Older defaults are treated according to lender lookback policies rather than automatically as recent defaults.")
+
+    timeline = get_credit_timeline(user_id, conn)
+    if not timeline:
+        st.info("ℹ️ No historical credit bureau events on record for this account. (Credit scoring is computed purely from your cash-flow behavior without penalizing credit invisibility).")
+    else:
+        df_timeline = pd.DataFrame(timeline)
+        st.dataframe(
+            df_timeline[[
+                "event_type", "event_date", "age", "status", "resolution_date", "amount", "institution"
+            ]].rename(columns={
+                "event_type": "Event Type",
+                "event_date": "Event Date",
+                "age": "Age",
+                "status": "Current Status",
+                "resolution_date": "Resolution Date",
+                "amount": "Amount (₹)",
+                "institution": "Institution"
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
+
     close_section_card()
 
 
@@ -2173,6 +2514,78 @@ def render_banker_dashboard(conn):
         unsafe_allow_html=True
     )
 
+    ensure_policy_tables(conn)
+
+    # 0. Lender Policy Management & Configuration (Requirement 5)
+    open_section_card("🏛️ Lender Policy Management & Versioning", "Configure and version underwriting rules across lending partners")
+    
+    all_policies = get_all_policies(conn)
+    policies_df = pd.DataFrame(all_policies)
+    if not policies_df.empty:
+        st.dataframe(
+            policies_df[[
+                "lender_name", "policy_version", "min_score", "min_income_stability",
+                "max_debt_ratio", "max_recent_defaults", "recent_default_window_months",
+                "historical_default_window_years", "allow_resolved_historical_defaults", "description"
+            ]].rename(columns={
+                "lender_name": "Lender Partner",
+                "policy_version": "Version",
+                "min_score": "Min Score",
+                "min_income_stability": "Min Income Stability",
+                "max_debt_ratio": "Max Debt Ratio",
+                "max_recent_defaults": "Max Recent Def",
+                "recent_default_window_months": "Recent Window (mo)",
+                "historical_default_window_years": "Hist Window (yr)",
+                "allow_resolved_historical_defaults": "Allow Resolved Hist",
+                "description": "Description"
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
+
+    with st.expander("➕ Configure / Update Lender Policy Version", expanded=False):
+        with st.form("lender_policy_form"):
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                pol_lender_name = st.text_input("Lender Partner Name", value="NBFC Flexi-Credit")
+                pol_version = st.text_input("Policy Version", value="v1.1", help="e.g. v1.0, v1.1, v2.0")
+                pol_min_score = st.slider("Minimum Credit Score", min_value=300.0, max_value=900.0, value=600.0, step=10.0)
+                pol_min_income_reg = st.slider("Minimum Income Stability Component", min_value=0.0, max_value=1.0, value=0.40, step=0.05)
+            with col_l2:
+                pol_max_debt = st.slider("Maximum Debt Obligation Ratio", min_value=0.10, max_value=1.0, value=0.50, step=0.05, format="%.2f")
+                pol_max_rec_def = st.number_input("Max Allowed Recent Defaults", min_value=0, max_value=5, value=0)
+                pol_rec_window = st.selectbox("Recent Default Window (Months)", [6, 12, 18, 24, 36], index=1)
+                pol_hist_window = st.selectbox("Historical Default Lookback Window (Years)", [1, 2, 3, 5, 7, 10], index=3)
+                pol_allow_resolved = st.checkbox("Allow Resolved Historical Defaults (fair inclusion for old defaults)", value=True)
+
+            pol_desc = st.text_input("Policy Description / Underwriting Scope", value="Configured risk policy for alternate credit underwriting.")
+            
+            save_pol_btn = st.form_submit_button("💾 Save Policy Version", use_container_width=True)
+            if save_pol_btn:
+                try:
+                    p_id = f"pol_{pol_lender_name.lower().replace(' ', '_')}_{pol_version.replace('.', '_')}"
+                    l_id = f"lender_{pol_lender_name.lower().replace(' ', '_')}"
+                    save_policy({
+                        "policy_id": p_id,
+                        "lender_id": l_id,
+                        "lender_name": pol_lender_name.strip(),
+                        "policy_version": pol_version.strip(),
+                        "min_score": pol_min_score,
+                        "min_income_stability": pol_min_income_reg,
+                        "max_debt_ratio": pol_max_debt,
+                        "max_recent_defaults": pol_max_rec_def,
+                        "recent_default_window_months": pol_rec_window,
+                        "historical_default_window_years": pol_hist_window,
+                        "allow_resolved_historical_defaults": pol_allow_resolved,
+                        "description": pol_desc.strip()
+                    }, conn)
+                    st.success(f"Policy `{pol_lender_name} ({pol_version})` saved and versioned successfully!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error saving policy: {e}")
+
+    close_section_card()
+
     # 1. Pending Queue
     open_section_card("Pending Loan Applications Queue", "Review cash-flow based loan requests from applicants")
 
@@ -2374,9 +2787,54 @@ def render_banker_dashboard(conn):
         if not complaints_df.empty:
             render_my_complaints(complaints_df, language=selected_lang)
 
-        # Decision Panel
+        # -------------------------------------------------------------
+        # HISTORICAL CREDIT CONTEXT & TIMELINE (Requirement 2)
+        # -------------------------------------------------------------
+        timeline = get_credit_timeline(selected_user_id, conn)
+        if timeline:
+            open_section_card("📜 Historical Credit Context & Timeline", "Historical bureau events tracked for this applicant")
+            st.dataframe(
+                pd.DataFrame(timeline)[[
+                    "event_type", "event_date", "age", "status", "resolution_date", "amount", "institution"
+                ]].rename(columns={
+                    "event_type": "Event Type",
+                    "event_date": "Date",
+                    "age": "Age",
+                    "status": "Current Status",
+                    "resolution_date": "Resolution Date",
+                    "amount": "Obligation Amount (₹)",
+                    "institution": "Institution"
+                }),
+                hide_index=True,
+                use_container_width=True
+            )
+            st.caption("ℹ️ Note: Old defaults (e.g. > 3–5 years ago) are evaluated according to each lender's configurable lookback policy rather than automatically as recent defaults.")
+            close_section_card()
+
+        # -------------------------------------------------------------
+        # MULTI-LENDER COMPARATIVE EVALUATION (Requirement 1)
+        # -------------------------------------------------------------
+        open_section_card("⚖️ Multi-Lender Policy Evaluation & Comparative Analysis", "Evaluate the same applicant across different lender policies simultaneously")
+        all_lenders = get_all_policies(conn)
+        comp_rows = []
+        for p in all_lenders:
+            ev = evaluate_applicant(selected_user_id, p, conn)
+            comp_rows.append({
+                "Lender Partner": p["lender_name"],
+                "Policy Version": p["policy_version"],
+                "Decision": "✅ APPROVED" if ev["decision"] == "approved" else "❌ REJECTED",
+                "Passed Rules": f"{len(ev['passed_rules'])}/5",
+                "Failed Rules": f"{len(ev['failed_rules'])}/5",
+                "Primary Factor / Rationale": ev["primary_failed_factor"] or "All criteria passed"
+            })
+        st.dataframe(pd.DataFrame(comp_rows), hide_index=True, use_container_width=True)
+        close_section_card()
+
+        # -------------------------------------------------------------
+        # DECISION PANEL & AUDITABILITY (Requirement 6)
+        # -------------------------------------------------------------
         if auditing_app_id is not None:
-            open_section_card("Loan Decision Panel", "Approve or Reject the loan application based on applicant credit profile")
+            open_section_card("Loan Decision Panel & Audit Logging", "Enforce lender underwriting policy and create an immutable audit record")
 
             app_info = pending_apps[pending_apps["application_id"] == auditing_app_id].iloc[0]
             st.markdown(
@@ -2389,25 +2847,47 @@ def render_banker_dashboard(conn):
                 """
             )
 
-            decision_notes = st.text_area("Decision Notes / Rationale", placeholder="Explain the rationale for approval or rejection...", key="banker_decision_notes")
+            # Select which policy is enforced for this decision
+            lender_options = {f"{p['lender_name']} ({p['policy_version']})": p for p in all_lenders}
+            selected_lender_label = st.selectbox("Underwriting Policy Enforced", list(lender_options.keys()), key="banker_lender_policy_select")
+            active_policy = lender_options[selected_lender_label]
+
+            # Run policy evaluation
+            pol_eval = evaluate_applicant(selected_user_id, active_policy, conn)
+            
+            if pol_eval["decision"] == "approved":
+                st.success(f"Policy Engine Assessment: **APPROVED** under `{active_policy['lender_name']}` (`{active_policy['policy_version']}`)")
+                default_notes = f"Approved under {active_policy['lender_name']} ({active_policy['policy_version']}). All policy rules met."
+            else:
+                st.warning(f"Policy Engine Assessment: **REJECTED** under `{active_policy['lender_name']}` (`{active_policy['policy_version']}`)")
+                default_notes = pol_eval["rejection_explanation"]
+
+            decision_notes = st.text_area("Decision Notes / Audit Rationale", value=default_notes, key="banker_decision_notes")
 
             col_app, col_rej = st.columns(2)
             with col_app:
                 if st.button("Approve Loan", use_container_width=True, type="primary", key="btn_approve"):
                     try:
+                        # Log audit
+                        pol_eval["decision"] = "approved"
+                        eval_id = record_evaluation_audit(pol_eval, auditing_app_id, conn)
+
                         conn.execute(
                             """
                             UPDATE loan_applications
                             SET status = 'approved',
                                 reviewed_by = ?,
                                 reviewed_at = datetime('now'),
-                                decision_notes = ?
+                                decision_notes = ?,
+                                lender_id = ?,
+                                policy_version = ?,
+                                evaluation_id = ?
                             WHERE application_id = ?
                             """,
-                            (st.session_state.user_id, decision_notes, auditing_app_id)
+                            (st.session_state.user_id, decision_notes, active_policy["lender_id"], active_policy["policy_version"], eval_id, auditing_app_id)
                         )
                         conn.commit()
-                        st.success("Loan application APPROVED successfully!")
+                        st.success("Loan application APPROVED with immutable policy audit logged!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error approving loan: {e}")
@@ -2415,19 +2895,26 @@ def render_banker_dashboard(conn):
             with col_rej:
                 if st.button("Reject Loan", use_container_width=True, key="btn_reject"):
                     try:
+                        # Log audit
+                        pol_eval["decision"] = "rejected"
+                        eval_id = record_evaluation_audit(pol_eval, auditing_app_id, conn)
+
                         conn.execute(
                             """
                             UPDATE loan_applications
                             SET status = 'rejected',
                                 reviewed_by = ?,
                                 reviewed_at = datetime('now'),
-                                decision_notes = ?
+                                decision_notes = ?,
+                                lender_id = ?,
+                                policy_version = ?,
+                                evaluation_id = ?
                             WHERE application_id = ?
                             """,
-                            (st.session_state.user_id, decision_notes, auditing_app_id)
+                            (st.session_state.user_id, decision_notes, active_policy["lender_id"], active_policy["policy_version"], eval_id, auditing_app_id)
                         )
                         conn.commit()
-                        st.warning("Loan application REJECTED successfully.")
+                        st.warning("Loan application REJECTED with immutable policy audit logged.")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error rejecting loan: {e}")
@@ -2441,7 +2928,10 @@ def render_banker_dashboard(conn):
     # 2. Historical applications review log (always show at the bottom)
     history_apps = pd.read_sql_query(
         """
-        SELECT u.name, la.amount_requested, la.purpose, la.applied_at, la.status, la.reviewed_by, la.reviewed_at, la.decision_notes
+        SELECT u.name, la.amount_requested, la.purpose, la.applied_at, la.status,
+               COALESCE(la.lender_id, 'NBFC Flexi-Credit') as lender,
+               COALESCE(la.policy_version, 'v1.0') as policy_ver,
+               la.reviewed_by, la.reviewed_at, la.decision_notes
         FROM loan_applications la
         JOIN users u ON la.user_id = u.user_id
         WHERE la.status != 'pending'
@@ -2450,7 +2940,7 @@ def render_banker_dashboard(conn):
         conn
     )
     if not history_apps.empty:
-        open_section_card("Reviewed Loan Applications History", "Transparent log of approved and rejected loan requests")
+        open_section_card("Reviewed Loan Applications History", "Transparent log of approved and rejected loan requests with audit trail")
         st.dataframe(
             history_apps.rename(columns={
                 "name": "Applicant Name",
@@ -2458,9 +2948,11 @@ def render_banker_dashboard(conn):
                 "purpose": "Purpose",
                 "applied_at": "Applied Date",
                 "status": "Decision",
+                "lender": "Lender Partner",
+                "policy_ver": "Policy Version",
                 "reviewed_by": "Reviewed By",
                 "reviewed_at": "Reviewed Date",
-                "decision_notes": "Notes / Rationale"
+                "decision_notes": "Audit Notes / Rationale"
             }),
             hide_index=True,
             use_container_width=True
@@ -2538,12 +3030,80 @@ def main():
         selected_lang_name = st.sidebar.selectbox("Language / भाषा / மொழி", list(lang_options.keys()))
         selected_lang = lang_options.get(selected_lang_name, "en")
 
+        # Groq API Key settings in sidebar
+        with st.sidebar.expander("⚙️ AI Engine Settings", expanded=False):
+            env_key = os.getenv("GROQ_API_KEY", "").strip()
+            stored_key = st.session_state.get("groq_api_key") or env_key
+
+            # Status display
+            if stored_key:
+                masked = f"{stored_key[:7]}...{stored_key[-4:]}" if len(stored_key) > 12 else "Set"
+                st.caption(f"Status: **Key Configured** (`{masked}`)")
+            else:
+                st.caption("Status: **Using PayLens Local Rule Engine**")
+
+            new_key = st.text_input(
+                "Groq API Key",
+                value=stored_key,
+                type="password",
+                help="Provide a Groq API key for cloud LLM chat. If omitted or invalid, PayLens automatically uses the local multilingual rule engine.",
+                key="sidebar_groq_key_input"
+            )
+
+            col_test, col_save = st.columns([1, 1])
+            with col_test:
+                if st.button("🧪 Test Key", key="btn_test_groq"):
+                    target_test = new_key.strip() or stored_key
+                    with st.spinner("Testing Groq connection..."):
+                        ok, msg, avail = test_groq_connection(target_test)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+
+            with col_save:
+                if st.button("💾 Save Key", key="btn_save_groq"):
+                    cleaned = new_key.strip()
+                    st.session_state.groq_api_key = cleaned
+                    os.environ["GROQ_API_KEY"] = cleaned
+                    _response_cache.clear()
+                    # Persist to .env
+                    try:
+                        env_file_path = _ENV_PATH
+                        lines = []
+                        if env_file_path.exists():
+                            with open(env_file_path, "r", encoding="utf-8") as f:
+                                lines = f.readlines()
+                        found = False
+                        new_lines = []
+                        for l in lines:
+                            if l.startswith("GROQ_API_KEY="):
+                                new_lines.append(f"GROQ_API_KEY={cleaned}\n")
+                                found = True
+                            else:
+                                new_lines.append(l)
+                        if not found:
+                            new_lines.insert(0, f"GROQ_API_KEY={cleaned}\n")
+                        with open(env_file_path, "w", encoding="utf-8") as f:
+                            f.writelines(new_lines)
+                        st.success("Key saved to .env!")
+                    except Exception as e:
+                        st.warning(f"Key saved to session: {e}")
+
         loc_nav = NAV_LOCALIZATION.get(selected_lang, NAV_LOCALIZATION["en"])
+
+        nav_options = list(loc_nav.keys())
+        current_nav = st.session_state.get("user_nav_tab", "Home")
+        if current_nav not in nav_options:
+            current_nav = "Home"
+        current_idx = nav_options.index(current_nav)
 
         active_tab = st.sidebar.radio(
             "Navigation",
-            options=list(loc_nav.keys()),
+            options=nav_options,
+            index=current_idx,
             format_func=lambda x: loc_nav[x],
+            key="user_nav_tab",
             label_visibility="collapsed"
         )
 
@@ -2557,17 +3117,19 @@ def main():
             unsafe_allow_html=True,
         )
 
-        fraud_df = load_fraud_flags(conn, user_id)
+        fraud_df = load_fraud_flags(conn, user_id, language=selected_lang)
         subs_df = load_subscriptions(conn, user_id)
         credit = load_credit_score(conn, user_id)
 
         # Tab Routing
         if active_tab == "Home":
+            heading_title = "अवलोकन (Overview)" if selected_lang == "hi" else ("கண்ணோட்டம் (Overview)" if selected_lang == "ta" else "Overview")
+            heading_desc = "आपके समग्र वित्तीय स्वास्थ्य संकेतक।" if selected_lang == "hi" else ("உங்கள் ஒட்டுமொத்த நிதி நிலைமை." if selected_lang == "ta" else "Your high-level financial health indicators.")
             st.markdown(
-                """
+                f"""
                 <div class="page-heading">
-                    <h2 class="page-title">Overview</h2>
-                    <p class="page-description">Your high-level financial health indicators.</p>
+                    <h2 class="page-title">{heading_title}</h2>
+                    <p class="page-description">{heading_desc}</p>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -2631,11 +3193,13 @@ def main():
             render_loan_application_section(conn, user_id, language=selected_lang)
 
         elif active_tab == "Chat":
+            chat_title = "चैट सहायक (Chat Assistant)" if selected_lang == "hi" else ("அரட்டை உதவியாளர் (Chat Assistant)" if selected_lang == "ta" else "Chat Assistant")
+            chat_desc = "धोखाधड़ी के अलर्ट, सदस्यताएँ, या स्कोर के बारे में पूछें।" if selected_lang == "hi" else ("மோசடி எச்சரிக்கைகள் அல்லது சந்தாக்கள் பற்றி கேளுங்கள்." if selected_lang == "ta" else "Ask queries about fraud alerts, subscriptions, or scores.")
             st.markdown(
-                """
+                f"""
                 <div class="page-heading">
-                    <h2 class="page-title">Chat Assistant</h2>
-                    <p class="page-description">Ask queries about fraud alerts, subscriptions, or scores.</p>
+                    <h2 class="page-title">{chat_title}</h2>
+                    <p class="page-description">{chat_desc}</p>
                 </div>
                 """,
                 unsafe_allow_html=True

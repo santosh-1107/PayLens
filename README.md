@@ -6,7 +6,7 @@
 
 A smart assistant that reads a user's UPI transaction history and turns
 raw transaction data into useful insight — for end users and, separately,
-for authorized financial institutions reviewing credit risk.
+for authorized financial institutions reviewing credit risk .
 
 End-user facing capabilities:
 

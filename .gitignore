@@ -2,5 +2,7 @@
 __pycache__/
 *.pyc
 data/*.db
+data/audio_cache/
+*.mp3
 .venv/
 venv/

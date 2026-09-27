@@ -382,7 +382,75 @@ def main():
     print(f"   - Subscription-pattern transactions: {cur.fetchone()[0]}")
     print(f"   - Users with circular transactions: {circular_users_count}")
 
+    # Seed initial credit events and default lender policies
+    seed_credit_events_and_policies(conn)
+    print("✅ Seeded lender policies and historical credit events")
+
     conn.close()
+
+
+def seed_credit_events_and_policies(conn):
+    try:
+        from policy_engine import seed_default_policies, ensure_policy_tables
+    except ImportError:
+        from src.policy_engine import seed_default_policies, ensure_policy_tables
+    ensure_policy_tables(conn)
+    seed_default_policies(conn)
+
+    now = datetime.now()
+    sample_events = [
+        # user_001: Clean profile with on-time payments and closed loan
+        (
+            str(uuid.uuid4()), "user_001", "loan_closure",
+            (now - timedelta(days=400)).strftime("%Y-%m-%d"),
+            "closed", (now - timedelta(days=400)).strftime("%Y-%m-%d"),
+            25000.0, "HDFC Bank Micro-Credit"
+        ),
+        (
+            str(uuid.uuid4()), "user_001", "on_time_payment",
+            (now - timedelta(days=120)).strftime("%Y-%m-%d"),
+            "closed", (now - timedelta(days=120)).strftime("%Y-%m-%d"),
+            5000.0, "KreditBee Cash Loan"
+        ),
+        # user_002: Old resolved default 4.2 years ago (~1530 days)
+        (
+            str(uuid.uuid4()), "user_002", "default",
+            (now - timedelta(days=1530)).strftime("%Y-%m-%d"),
+            "resolved", (now - timedelta(days=1250)).strftime("%Y-%m-%d"),
+            45000.0, "SBI Personal Loan"
+        ),
+        (
+            str(uuid.uuid4()), "user_002", "loan_closure",
+            (now - timedelta(days=200)).strftime("%Y-%m-%d"),
+            "closed", (now - timedelta(days=200)).strftime("%Y-%m-%d"),
+            15000.0, "IDFC FIRST Two-Wheeler Loan"
+        ),
+        # user_005: Recent active default 5 months ago (~150 days)
+        (
+            str(uuid.uuid4()), "user_005", "default",
+            (now - timedelta(days=150)).strftime("%Y-%m-%d"),
+            "active", None,
+            18500.0, "Bajaj Finance Consumer Durable Loan"
+        ),
+        # user_003: Missed payment 8 months ago, resolved
+        (
+            str(uuid.uuid4()), "user_003", "missed_payment",
+            (now - timedelta(days=240)).strftime("%Y-%m-%d"),
+            "resolved", (now - timedelta(days=210)).strftime("%Y-%m-%d"),
+            3500.0, "Tata Capital Quick Cash"
+        ),
+    ]
+
+    conn.executemany(
+        """
+        INSERT OR IGNORE INTO credit_events (
+            event_id, user_id, event_type, event_date, status,
+            resolution_date, amount, institution
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        sample_events,
+    )
+    conn.commit()
 
 
 if __name__ == "__main__":

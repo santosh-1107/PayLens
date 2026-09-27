@@ -146,8 +146,62 @@ CREATE TABLE IF NOT EXISTS loan_applications (
     reviewed_by TEXT,
     reviewed_at TEXT,
     decision_notes TEXT,
+    lender_id TEXT,
+    policy_version TEXT,
+    evaluation_id TEXT,
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (reviewed_by) REFERENCES users(user_id)
 );
+
+-- Historical credit context table: tracks credit bureau / institution events
+CREATE TABLE IF NOT EXISTS credit_events (
+    event_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,          -- 'default', 'missed_payment', 'settlement', 'loan_closure', 'on_time_payment'
+    event_date TEXT NOT NULL,          -- YYYY-MM-DD
+    status TEXT NOT NULL,              -- 'active', 'resolved', 'written_off', 'closed'
+    resolution_date TEXT,              -- YYYY-MM-DD or NULL
+    amount REAL,                       -- obligation / credit amount
+    institution TEXT,                  -- institution or lender name
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- Configurable and versioned lender underwriting policies
+CREATE TABLE IF NOT EXISTS lender_policies (
+    policy_id TEXT PRIMARY KEY,
+    lender_id TEXT NOT NULL,
+    lender_name TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    min_score REAL NOT NULL,
+    min_income_stability REAL NOT NULL,
+    max_debt_ratio REAL NOT NULL,
+    max_recent_defaults INTEGER NOT NULL DEFAULT 0,
+    recent_default_window_months INTEGER NOT NULL DEFAULT 12,
+    historical_default_window_years INTEGER NOT NULL DEFAULT 5,
+    allow_resolved_historical_defaults INTEGER NOT NULL DEFAULT 1,
+    description TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Audit table: records every policy evaluation and decision immutably
+CREATE TABLE IF NOT EXISTS policy_evaluations (
+    evaluation_id TEXT PRIMARY KEY,
+    application_id INTEGER,
+    applicant_id TEXT NOT NULL,
+    lender_id TEXT NOT NULL,
+    lender_name TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    decision TEXT NOT NULL,            -- 'approved' or 'rejected'
+    rules_evaluated TEXT NOT NULL,     -- JSON array of all evaluated rule definitions
+    rules_passed TEXT NOT NULL,        -- JSON array of passed rules
+    rules_failed TEXT NOT NULL,        -- JSON array of failed rules
+    primary_failed_factor TEXT,        -- primary failing rule rationale
+    rejection_explanation TEXT,        -- deterministic policy explanation
+    evaluated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (applicant_id) REFERENCES users(user_id),
+    FOREIGN KEY (application_id) REFERENCES loan_applications(application_id)
+);
+
 
 
